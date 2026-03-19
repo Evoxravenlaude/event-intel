@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic generated lock file
+alembic/versions/__pycache__/
+
+# Sentence-transformers model cache
+.cache/
+~/.cache/torch/
+~/.cache/huggingface/
+
+# Test artefacts
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+
+# Railway / Docker
+.railway/

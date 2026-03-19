@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/workers/*", "tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

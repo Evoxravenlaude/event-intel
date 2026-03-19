@@ -1,0 +1,20 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+sqlalchemy==2.0.43
+pydantic==2.11.7
+pydantic-settings==2.10.1
+alembic==1.16.4
+psycopg[binary]==3.2.9
+httpx==0.28.1
+beautifulsoup4==4.13.4
+python-dateutil==2.9.0.post0
+feedparser==6.0.11
+icalendar==6.3.1
+pytest==8.4.1
+# Multilingual sentence embeddings (clustering similarity)
+# Model: paraphrase-multilingual-MiniLM-L12-v2 (~50MB, CPU-friendly)
+# Remove if running in a very memory-constrained environment (system falls back to Jaccard)
+sentence-transformers==3.4.1
+# pgvector SQLAlchemy integration (Postgres only — safe to keep on SQLite)
+pgvector==0.3.6
+aiofiles==24.1.0
