@@ -6,6 +6,7 @@ Create Date: 2026-03-17
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 revision = "20260317_0002"
 down_revision = "20260317_0001"
@@ -32,7 +33,12 @@ def upgrade() -> None:
     if not _is_postgres():
         return
 
-    # PostGIS — skip silently if extension not available on this Postgres instance
+    # PostGIS — use a SAVEPOINT so a failure here doesn't abort the whole
+    # transaction. Without this, a failed CREATE EXTENSION puts Postgres into
+    # an aborted-transaction state and every subsequent statement (including
+    # Alembic writing to alembic_version) fails too.
+    bind = op.get_bind()
+    bind.execute(text("SAVEPOINT sp_postgis"))
     try:
         op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
         op.execute("ALTER TABLE venues ADD COLUMN IF NOT EXISTS location geography(Point, 4326)")
@@ -52,25 +58,34 @@ def upgrade() -> None:
             END;
             $$ LANGUAGE plpgsql;
         """)
+        # Split into two separate executes — psycopg3 does not allow multiple
+        # statements in a single execute() call.
+        op.execute("DROP TRIGGER IF EXISTS trg_sync_venue_location ON venues")
         op.execute("""
-            DROP TRIGGER IF EXISTS trg_sync_venue_location ON venues;
             CREATE TRIGGER trg_sync_venue_location
             BEFORE INSERT OR UPDATE OF latitude, longitude ON venues
-            FOR EACH ROW EXECUTE FUNCTION sync_venue_location();
+            FOR EACH ROW EXECUTE FUNCTION sync_venue_location()
         """)
+        bind.execute(text("RELEASE SAVEPOINT sp_postgis"))
     except Exception:
-        pass  # PostGIS not available — radius queries will use Haversine fallback
+        # Roll back only the PostGIS sub-block; the rest of the transaction
+        # (venue_aliases table + indexes) remains intact and can commit.
+        bind.execute(text("ROLLBACK TO SAVEPOINT sp_postgis"))
+        # PostGIS not available — radius queries will use Haversine fallback
 
 
 def downgrade() -> None:
     if _is_postgres():
+        bind = op.get_bind()
+        bind.execute(text("SAVEPOINT sp_postgis_down"))
         try:
             op.execute("DROP TRIGGER IF EXISTS trg_sync_venue_location ON venues")
             op.execute("DROP FUNCTION IF EXISTS sync_venue_location()")
             op.execute("DROP INDEX IF EXISTS ix_venues_location")
             op.execute("ALTER TABLE venues DROP COLUMN IF EXISTS location")
+            bind.execute(text("RELEASE SAVEPOINT sp_postgis_down"))
         except Exception:
-            pass
+            bind.execute(text("ROLLBACK TO SAVEPOINT sp_postgis_down"))
 
     op.drop_index("ix_venue_aliases_alias", table_name="venue_aliases")
     op.drop_index("ix_venue_aliases_venue_id", table_name="venue_aliases")
