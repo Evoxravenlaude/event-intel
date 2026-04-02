@@ -53,7 +53,6 @@ class LumaAdapter(BaseAdapter):
         with self._client() as client:
             response = client.get(url)
             response.raise_for_status()
-        # Use bytes — icalendar expects bytes to handle encoding correctly
         calendar = Calendar.from_ical(response.content)
         items: list[RawSignalCreate] = []
         for component in calendar.walk():
@@ -145,6 +144,55 @@ class EventbriteAdapter(BaseAdapter):
         return SourceAdapterResult(items=items, fetched_count=fetched_count)
 
 
+class FeedAdapter(BaseAdapter):
+    """Generic RSS/Atom feed adapter — used by Telegram, LinkedIn feeds, and X fallback."""
+
+    def __init__(self, source_name: str, configured_urls: list[str]):
+        self.source_name = source_name
+        self.configured_urls = configured_urls
+
+    def fetch(self, city: str | None, query: str | None, urls: list[str] | None = None) -> SourceAdapterResult:
+        target_urls = urls or self.configured_urls
+        items: list[RawSignalCreate] = []
+        fetched_count = 0
+        for url in target_urls:
+            feed = feedparser.parse(url)
+            fetched_count += 1
+            for entry in feed.entries:
+                title = entry.get("title")
+                body = re.sub("<[^>]+>", " ", entry.get("summary", "") or entry.get("description", ""))
+                full_text = f"{title or ''} {body or ''}"
+                items.append(
+                    RawSignalCreate(
+                        source_type=self.source_name,
+                        source_name=self.source_name,
+                        external_id=entry.get("id") or build_external_id(entry.get("link"), title),
+                        title=title,
+                        body=body,
+                        location_text=city,
+                        url=entry.get("link"),
+                        posted_at=parse_datetime(entry.get("published")),
+                        source_confidence=0.63,
+                        normalized_category=infer_category(full_text),
+                    )
+                )
+        if not items and settings.enable_mock_adapters:
+            items.append(
+                RawSignalCreate(
+                    source_type=self.source_name,
+                    source_name=self.source_name,
+                    external_id=build_external_id(None, f"{self.source_name}-{city or 'global'}"),
+                    title=f"{query or self.source_name.title()} event in {city or 'Global'}",
+                    body=f"Mock {self.source_name} result. Add feed URLs in env or payload urls.",
+                    location_text=city,
+                    source_confidence=0.5,
+                    normalized_category=infer_category(query or self.source_name),
+                )
+            )
+            fetched_count = max(fetched_count, 1)
+        return SourceAdapterResult(items=items, fetched_count=fetched_count)
+
+
 class LinkedInAdapter(BaseAdapter):
     """
     LinkedIn adapter.
@@ -155,10 +203,6 @@ class LinkedInAdapter(BaseAdapter):
        Configured via LINKEDIN_SOURCE_URLS (comma-separated).
     2. **Direct page URLs** in the ingest payload — fetches the HTML and
        extracts structured event data from LinkedIn's JSON-LD embedding.
-
-    JSON-LD extraction catches the most signal: title, description, start/end
-    dates, and location are all present in LinkedIn's structured markup when
-    an event page is fetched without auth (public events only).
     """
 
     source_name = "linkedin"
@@ -257,7 +301,7 @@ class LinkedInAdapter(BaseAdapter):
                     detected_end_time=end_dt,
                     latitude=float(latitude) if latitude else None,
                     longitude=float(longitude) if longitude else None,
-                    source_confidence=0.78,  # JSON-LD from official page = high confidence
+                    source_confidence=0.78,
                     normalized_category=infer_category(f"{title} {description}"),
                 )
             except (ValueError, KeyError, TypeError):
@@ -265,49 +309,6 @@ class LinkedInAdapter(BaseAdapter):
 
         # Fallback: plain HTML extraction
         return html_to_signal("linkedin", "linkedin", url, response.text, city)
-        self.source_name = source_name
-        self.configured_urls = configured_urls
-
-    def fetch(self, city: str | None, query: str | None, urls: list[str] | None = None) -> SourceAdapterResult:
-        target_urls = urls or self.configured_urls
-        items: list[RawSignalCreate] = []
-        fetched_count = 0
-        for url in target_urls:
-            feed = feedparser.parse(url)
-            fetched_count += 1
-            for entry in feed.entries:
-                title = entry.get("title")
-                body = re.sub("<[^>]+>", " ", entry.get("summary", "") or entry.get("description", ""))
-                full_text = f"{title or ''} {body or ''}"
-                items.append(
-                    RawSignalCreate(
-                        source_type=self.source_name,
-                        source_name=self.source_name,
-                        external_id=entry.get("id") or build_external_id(entry.get("link"), title),
-                        title=title,
-                        body=body,
-                        location_text=city,
-                        url=entry.get("link"),
-                        posted_at=parse_datetime(entry.get("published")),
-                        source_confidence=0.63,
-                        normalized_category=infer_category(full_text),
-                    )
-                )
-        if not items and settings.enable_mock_adapters:
-            items.append(
-                RawSignalCreate(
-                    source_type=self.source_name,
-                    source_name=self.source_name,
-                    external_id=build_external_id(None, f"{self.source_name}-{city or 'global'}"),
-                    title=f"{query or self.source_name.title()} event in {city or 'Global'}",
-                    body=f"Mock {self.source_name} result. Add feed URLs in env or payload urls.",
-                    location_text=city,
-                    source_confidence=0.5,
-                    normalized_category=infer_category(query or self.source_name),
-                )
-            )
-            fetched_count = max(fetched_count, 1)
-        return SourceAdapterResult(items=items, fetched_count=fetched_count)
 
 
 class XAdapter(BaseAdapter):
@@ -328,7 +329,6 @@ class XAdapter(BaseAdapter):
     def fetch(self, city: str | None, query: str | None, urls: list[str] | None = None) -> SourceAdapterResult:
         if settings.x_bearer_token and query:
             return self._fetch_api_v2(city, query)
-        # Fall back to feed-based ingestion
         return FeedAdapter("x", self.configured_urls).fetch(city, query, urls)
 
     def _fetch_api_v2(self, city: str | None, query: str) -> SourceAdapterResult:
@@ -368,7 +368,6 @@ class XAdapter(BaseAdapter):
                     posted_at=posted_at,
                     detected_start_time=start_time,
                     detected_end_time=end_time,
-                    # Tweets are lower confidence than structured sources
                     source_confidence=0.45,
                     normalized_category=infer_category(text),
                 )
