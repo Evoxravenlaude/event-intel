@@ -32,11 +32,15 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY --chown=appuser:appgroup . .
 
+RUN mkdir -p /app/.cache/huggingface && chown -R appuser:appgroup /app/.cache
+
 USER appuser
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PORT=8000 \
+    HF_HOME=/app/.cache/huggingface \
+    TRANSFORMERS_CACHE=/app/.cache/huggingface
 
 # bootstrap.sh runs `alembic upgrade head` then starts uvicorn.
 # This ensures schema is always up-to-date before traffic is accepted.
