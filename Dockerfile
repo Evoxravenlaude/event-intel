@@ -39,8 +39,7 @@ USER appuser
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000 \
-    HF_HOME=/app/.cache/huggingface \
-    TRANSFORMERS_CACHE=/app/.cache/huggingface
+    HF_HOME=/app/.cache/huggingface
 
 # bootstrap.sh runs `alembic upgrade head` then starts uvicorn.
 # This ensures schema is always up-to-date before traffic is accepted.
