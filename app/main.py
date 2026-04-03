@@ -10,7 +10,8 @@ Routes:
   /health     → Health check
 
 Startup sequence:
-  1. Lifespan handler: logging, SQLite create_all (dev only), embedding warm-up.
+  1. Lifespan handler: logging, SQLite create_all (dev only), embedding warm-up,
+     scheduler thread (if SCHEDULER_SOURCES is set).
   2. Middleware: CORS → APIKeyMiddleware (/ and /static/* are exempt).
   3. Routers + static files mounted.
 
@@ -19,6 +20,8 @@ Schema: managed by `alembic upgrade head` in scripts/bootstrap.sh.
 from __future__ import annotations
 import logging
 import logging.config
+import threading
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -69,6 +72,35 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Background scheduler thread
+# ---------------------------------------------------------------------------
+
+def _start_scheduler_thread() -> None:
+    """
+    Launch the scheduler in a daemon thread so it runs alongside uvicorn
+    inside the same process. The thread is daemonised so it dies cleanly
+    when the main process exits.
+
+    A new event loop is created for the thread because asyncio loops are
+    not shared across threads.
+    """
+    def _run() -> None:
+        from app.workers.scheduler import run_scheduler
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run_scheduler())
+        except Exception as exc:
+            logger.error("Scheduler thread crashed: %s", exc)
+        finally:
+            loop.close()
+
+    thread = threading.Thread(target=_run, name="scheduler", daemon=True)
+    thread.start()
+    logger.info("Scheduler thread started")
+
+
+# ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
 
@@ -88,6 +120,15 @@ async def lifespan(app: FastAPI):
             emb_svc._get_model()
         except Exception as exc:
             logger.warning("Embedding model warm-up failed (non-fatal): %s", exc)
+
+    # Start scheduler in background thread if SCHEDULER_SOURCES is configured
+    if settings.scheduler_sources:
+        try:
+            _start_scheduler_thread()
+        except Exception as exc:
+            logger.warning("Scheduler failed to start (non-fatal): %s", exc)
+    else:
+        logger.info("SCHEDULER_SOURCES not set — scheduler not started")
 
     frontend = STATIC_DIR / "index.html"
     if frontend.exists():
@@ -132,7 +173,6 @@ def health():
 
 
 # Serve frontend at root — only if index.html exists
-# Placed AFTER API routers so /events, /signals etc. are never caught here
 @app.get("/", include_in_schema=False)
 def serve_frontend():
     index = STATIC_DIR / "index.html"
