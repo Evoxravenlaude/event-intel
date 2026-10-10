@@ -416,6 +416,22 @@ img{display:block;max-width:100%;}
 .tag-business{background:var(--accent-sub);color:var(--accent);}
 .tag-culture{background:rgba(220,38,38,0.08);color:var(--destructive);}
 .tag-general{background:var(--surface-3);color:var(--text-2);}
+.tag-sports{background:rgba(22,163,74,0.1);color:#15803D;}
+.tag-food{background:rgba(217,119,6,0.12);color:#B45309;}
+.tag-nightlife{background:rgba(190,24,93,0.1);color:#BE185D;}
+.tag-wellness{background:rgba(13,148,136,0.1);color:#0F766E;}
+.tag-community{background:rgba(79,70,229,0.1);color:#4338CA;}
+.tag-education{background:rgba(2,132,199,0.1);color:#0369A1;}
+.coverage-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text-3);margin:-4px 0 14px;}
+.coverage-line .dot{width:7px;height:7px;border-radius:50%;background:var(--text-3);display:inline-block;}
+.coverage-line.fresh .dot{background:var(--verified);}
+.coverage-line.scanning .dot{background:var(--accent);animation:pulseDot 1s infinite;}
+.coverage-line.nosrc .dot{background:var(--destructive);}
+.coverage-line button{font-size:12px;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:600;padding:0;}
+@keyframes pulseDot{0%,100%{opacity:.3}50%{opacity:1}}
+.radius-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-3);margin:0 0 12px;}
+.radius-row input[type=range]{flex:1;accent-color:var(--accent);}
+
 .tag-confirmed{background:rgba(22,163,74,0.1);color:var(--verified);}
 .tag-pending{background:rgba(217,119,6,0.1);color:var(--pending);}
 .tag-token{background:rgba(124,58,237,0.1);color:#7C3AED;}
@@ -778,6 +794,37 @@ img{display:block;max-width:100%;}
 .ingest-res.ok{color:var(--verified);}
 .ingest-res.err{color:var(--destructive);}
 
+.sources-status{margin:-4px 16px 16px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;}
+.src-pill{padding:3px 9px;border-radius:100px;border:1px solid var(--border);background:var(--surface-1);color:var(--text-3);font-weight:600;font-size:11px;}
+.src-pill.ok{border-color:var(--verified);color:var(--verified);}
+/* Review queue */
+.rq-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.rq-count{display:inline-block;min-width:20px;padding:1px 7px;margin-left:6px;border-radius:100px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;text-align:center;vertical-align:middle;}
+.rq-help{font-size:12px;color:var(--text-3);margin:4px 0 10px;line-height:1.45;}
+.rq-empty{padding:14px 0 4px;color:var(--text-3);font-size:13px;}
+.rq-item{padding:12px;margin-top:10px;border:1.5px solid var(--border);border-radius:var(--radius-md);background:var(--surface-2);transition:opacity .2s;}
+.rq-item.busy{opacity:.5;pointer-events:none;}
+.rq-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.rq-score{font-size:12px;font-weight:700;padding:2px 8px;border-radius:100px;background:var(--surface-1);border:1px solid var(--border);}
+.rq-meta{font-size:11px;color:var(--text-3);}
+.rq-pair{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;}
+.rq-side{min-width:0;}
+.rq-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-3);margin-bottom:3px;display:flex;gap:6px;align-items:center;}
+.rq-label .sig-src{font-size:9px;padding:1px 5px;}
+.rq-title{font-size:13px;font-weight:600;color:var(--text-1);line-height:1.3;word-wrap:break-word;}
+.rq-sub{font-size:11px;color:var(--text-3);margin-top:3px;}
+.rq-link{font-size:11px;color:var(--accent);text-decoration:none;}
+.rq-arrow{color:var(--text-3);font-size:16px;padding-top:18px;}
+.rq-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.rq-btn{flex:1;min-width:90px;padding:7px 8px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface-1);font-size:12px;font-weight:600;color:var(--text-1);cursor:pointer;transition:all .15s;}
+.rq-btn:hover{background:var(--surface-3);}
+.rq-btn.ok{border-color:var(--verified);color:var(--verified);}
+.rq-btn.ok:hover{background:var(--verified);color:#fff;}
+.rq-btn.warn{color:var(--destructive);}
+.rq-btn.warn:hover{background:var(--destructive);border-color:var(--destructive);color:#fff;}
+.rq-btn[disabled]{opacity:.4;cursor:not-allowed;}
+textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
+
 /* Cities sidebar widget */
 .cities-card{
   margin:0 16px 16px;padding:16px;
@@ -936,7 +983,9 @@ img{display:block;max-width:100%;}
 /* ═══════════════════════════════════════════════════════
    SUCCESS SCREEN
 ═══════════════════════════════════════════════════════ */
-#screen-success{
+/* ID selector outranked `.screen{display:none}` — the success screen was
+   permanently visible, ghosting over every other screen. Scope to .active. */
+#screen-success.active{
   display:flex;align-items:center;justify-content:center;
   min-height:100vh;
   background:linear-gradient(160deg,#FAF7F2,rgba(22,163,74,0.05));
@@ -1069,6 +1118,12 @@ img{display:block;max-width:100%;}
   <div class="hero">
     <div class="hero-eyebrow">Event Intel — <span id="hero-city-label">Global</span></div>
     <h1 class="hero-title">What's <em>happening</em> right now</h1>
+    <div class="coverage-line" id="coverage-line" aria-live="polite" style="display:none"><span class="dot"></span><span id="coverage-text"></span></div>
+    <div class="radius-row" id="radius-row" style="display:none">
+      <span>Within</span>
+      <input type="range" min="2" max="150" step="1" aria-label="Search radius in km" oninput="document.getElementById('radius-val').textContent=this.value" onchange="setRadius(this.value)">
+      <span><b id="radius-val">25</b> km</span>
+    </div>
     <div class="hero-stats">
       <div class="h-stat"><span class="h-stat-n" id="s-events">—</span><span class="h-stat-l">Events</span></div>
       <div class="h-stat"><span class="h-stat-n" id="s-signals">—</span><span class="h-stat-l">Signals</span></div>
@@ -1124,10 +1179,13 @@ img{display:block;max-width:100%;}
   <div class="map-header">
     <div class="map-filter-bar" role="group" aria-label="Map category filters">
       <div class="chip on" data-filter="all" onclick="mapFilter('all')" role="checkbox" aria-checked="true">All</div>
-      <div class="chip" data-filter="web3" onclick="mapFilter('web3')" role="checkbox" aria-checked="false">Web3</div>
+      <div class="chip" data-filter="culture" onclick="mapFilter('culture')" role="checkbox" aria-checked="false">Culture</div>
+      <div class="chip" data-filter="sports" onclick="mapFilter('sports')" role="checkbox" aria-checked="false">Sports</div>
       <div class="chip" data-filter="tech" onclick="mapFilter('tech')" role="checkbox" aria-checked="false">Tech</div>
       <div class="chip" data-filter="business" onclick="mapFilter('business')" role="checkbox" aria-checked="false">Business</div>
-      <div class="chip" data-filter="culture" onclick="mapFilter('culture')" role="checkbox" aria-checked="false">Culture</div>
+      <div class="chip" data-filter="web3" onclick="mapFilter('web3')" role="checkbox" aria-checked="false">Web3</div>
+      <div class="chip" data-filter="nightlife" onclick="mapFilter('nightlife')" role="checkbox" aria-checked="false">Nightlife</div>
+      <div class="chip" data-filter="food" onclick="mapFilter('food')" role="checkbox" aria-checked="false">Food</div>
     </div>
   </div>
   <div id="leaflet-map" role="application" aria-label="Event map"></div>
@@ -1160,7 +1218,7 @@ img{display:block;max-width:100%;}
     <div class="api-card-label">API Connection</div>
     <div class="api-url-row">
       <input class="api-url-inp" id="api-url-input" type="url"
-        placeholder="https://event-intel.onrender.com" aria-label="API URL">
+        placeholder="https://your-api.up.railway.app" aria-label="API URL">
       <button class="api-connect-btn" onclick="connectApi()">Connect</button>
     </div>
     <input class="api-key-inp" id="api-key-input" type="password"
@@ -1168,11 +1226,29 @@ img{display:block;max-width:100%;}
     <div class="api-status" id="api-status-msg">Not connected — showing demo data</div>
   </div>
 
-  <!-- Stats -->
+  <!-- Stats (live from /stats) -->
   <div class="stats-row">
     <div class="stat-box"><div class="stat-box-n" id="s-events-e">—</div><div class="stat-box-l">Events</div></div>
     <div class="stat-box"><div class="stat-box-n" id="s-signals-e">—</div><div class="stat-box-l">Signals</div></div>
     <div class="stat-box"><div class="stat-box-n" id="s-confirmed-e">—</div><div class="stat-box-l">Confirmed</div></div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-box-n" id="s-review-e">—</div><div class="stat-box-l">To review</div></div>
+    <div class="stat-box"><div class="stat-box-n" id="s-unprocessed-e">—</div><div class="stat-box-l">Unclustered</div></div>
+    <div class="stat-box"><div class="stat-box-n" id="s-areas-e">—</div><div class="stat-box-l">Areas scanned</div></div>
+  </div>
+  <div id="sources-status" class="sources-status"></div>
+
+  <!-- Review queue -->
+  <div class="ingest-card" id="review-card">
+    <div class="rq-card-head">
+      <div class="ingest-title">🧐 Review Queue <span class="rq-count" id="review-count">0</span></div>
+      <button class="icon-btn" onclick="refreshReview()" aria-label="Refresh review queue">↻</button>
+    </div>
+    <div class="rq-help">Uncertain matches the clusterer wasn't sure about. Your decisions also tune organizer reliability.</div>
+    <div id="review-list" role="list" aria-label="Pending review items">
+      <div class="rq-empty">Connect your API to see pending reviews.</div>
+    </div>
   </div>
 
   <!-- Ingest -->
@@ -1185,11 +1261,17 @@ img{display:block;max-width:100%;}
         <option value="telegram">Telegram</option>
         <option value="linkedin">LinkedIn</option>
         <option value="x">X / Twitter</option>
+        <option value="ticketmaster">Ticketmaster (geo)</option>
+        <option value="seatgeek">SeatGeek (geo)</option>
       </select>
     </div>
     <div class="form-row">
       <input class="form-inp-sm" id="ingest-query" placeholder="Query (e.g. web3 summit)" aria-label="Search query">
     </div>
+    <div class="form-row">
+      <textarea class="form-inp-sm" id="ingest-urls" rows="2" placeholder="Feed / page URLs (optional, one per line)" aria-label="Source URLs"></textarea>
+    </div>
+    <div class="rq-help">City comes from your selected city (<b id="ingest-city-label">Global</b>). Clustering runs automatically after ingest.</div>
     <button class="ingest-btn" id="ingest-btn" onclick="runIngest()">↓ Ingest Signals</button>
     <div class="ingest-res" id="ingest-result" aria-live="polite">—</div>
   </div>
@@ -1447,9 +1529,25 @@ img{display:block;max-width:100%;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════
+   SAFETY — every string that came from the API or a feed is escaped before
+   it is interpolated into innerHTML. Ingested titles come from untrusted
+   RSS/ICS/HTML sources; an unescaped <img onerror=…> would run in the admin's browser.
+═══════════════════════════════════════════════════════ */
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+/* ═══════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════ */
 let API_BASE = null;
+let STATS = null;
+let REVIEW_ITEMS = [];
+let LOCATION = null;        // {lat, lng, city, country, country_code, label, source:'gps'|'city'|'search'}
+let RADIUS_KM = 25;
+let COVERAGE = null;
+let CATEGORIES = ['web3','tech','business','culture','sports','food','nightlife','wellness','community','education'];
+try { const r = localStorage.getItem('ei_radius'); if (r) RADIUS_KM = Number(r) || 25; } catch {}
 let API_KEY  = '';
 let activeCity = 'Global';
 let activeFilter = 'all';
@@ -1581,23 +1679,51 @@ function setBnavActive(el) {
 /* ═══════════════════════════════════════════════════════
    SPLASH / AUTH
 ═══════════════════════════════════════════════════════ */
+function nearestKnownCity(lat, lng) {
+  let nearest = CITIES_DATA[0], minDist = Infinity;
+  for (const c of CITIES_DATA) {
+    const d = Math.hypot(c.lat-lat, (c.lng-lng)*Math.cos(lat*Math.PI/180));
+    if (d < minDist) { minDist = d; nearest = c; }
+  }
+  return {...nearest, approxKm: minDist*111};
+}
+
 function requestLocation() {
   if (!navigator.geolocation) { goTo('city'); return; }
+  announce('Locating you…');
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      // Find nearest city
-      let nearest = CITIES_DATA[0];
-      let minDist = Infinity;
-      for (const c of CITIES_DATA) {
-        const d = Math.hypot(c.lat-lat, c.lng-lng);
-        if (d < minDist) { minDist = d; nearest = c; }
-      }
-      selectCity(nearest.name);
+    async pos => {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      await setLocation({lat, lng, source:'gps'});
     },
-    () => { goTo('city'); }
+    () => { goTo('city'); },
+    {enableHighAccuracy:false, timeout:10000, maximumAge:300000}
   );
+}
+
+/* The single entry point for "where am I looking". Resolves a label for the
+   point (API reverse-geocode when live, nearest known city otherwise), then
+   loads the feed for it. */
+async function setLocation(loc) {
+  LOCATION = {...loc};
+  if (API_BASE && !loc.city) {
+    try {
+      const p = await api(`/geocode/reverse?lat=${loc.lat}&lng=${loc.lng}`);
+      LOCATION.city = p.city; LOCATION.country = p.country; LOCATION.country_code = p.country_code;
+    } catch {}
+  }
+  if (!LOCATION.city) {
+    const n = nearestKnownCity(loc.lat, loc.lng);
+    LOCATION.city = n.approxKm < 80 ? n.name : `${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)}`;
+  }
+  LOCATION.label = LOCATION.source==='gps' ? `Near you · ${LOCATION.city}` : LOCATION.city;
+  activeCity = LOCATION.city;
+  document.getElementById('nav-city').textContent = LOCATION.city;
+  document.getElementById('hero-city-label').textContent = LOCATION.label;
+  const il=document.getElementById('ingest-city-label'); if (il) il.textContent = LOCATION.city;
+  goTo('home');
+  if (mapInstance) mapInstance.setView([LOCATION.lat, LOCATION.lng], 11);
+  if (API_BASE) await loadLiveData(); else renderFeed(MOCK_EVENTS);
 }
 
 function doAuth(method) {
@@ -1627,23 +1753,51 @@ function renderCityChips() {
   ).join('');
 }
 
+let _citySearchTimer = null;
 function filterCities(q) {
   const res = document.getElementById('city-results');
   if (!q.trim()) { res.innerHTML=''; return; }
   const matches = ALL_CITIES.filter(c => c.toLowerCase().includes(q.toLowerCase())).slice(0,12);
-  res.innerHTML = matches.map(c =>
-    `<div class="search-result-item" onclick="selectCity('${c}')" role="option" tabindex="0">
-      <span class="result-icon" aria-hidden="true">📍</span>${c}
-    </div>`
-  ).join('') || '<div style="padding:16px;color:var(--text-3);font-size:14px;">No matches found.</div>';
+  const local = matches.map(c =>
+    `<div class="search-result-item" onclick="selectCity(${JSON.stringify(c).replace(/"/g,'&quot;')})" role="option" tabindex="0">
+      <span class="result-icon" aria-hidden="true">📍</span>${esc(c)}
+    </div>`).join('');
+  res.innerHTML = local || (API_BASE ? '' : '<div style="padding:16px;color:var(--text-3);font-size:14px;">No matches found.</div>');
+  if (!API_BASE || q.trim().length < 3) return;
+  // Anything not in the local list: ask the geocoder (debounced) — works for any place on Earth
+  clearTimeout(_citySearchTimer);
+  _citySearchTimer = setTimeout(async () => {
+    try {
+      const hits = await api(`/geocode?q=${encodeURIComponent(q.trim())}`);
+      if (document.querySelector('.city-search-inp').value.trim() !== q.trim()) return;
+      if (!hits.length) { if (!local) res.innerHTML='<div style="padding:16px;color:var(--text-3);font-size:14px;">No place found for that.</div>'; return; }
+      const h = hits[0];
+      if (matches.some(c => c.toLowerCase() === (h.city||'').toLowerCase())) return;
+      res.innerHTML = `<div class="search-result-item" onclick='selectPlace(${JSON.stringify(h).replace(/'/g,"&#39;")})' role="option" tabindex="0">
+          <span class="result-icon" aria-hidden="true">🌍</span>${esc(h.city || q)}<span style="color:var(--text-3);font-size:12px;margin-left:6px">${esc(h.country||'')}</span>
+        </div>` + res.innerHTML;
+    } catch {}
+  }, 350);
+}
+
+function selectPlace(p) {
+  setLocation({lat:p.latitude, lng:p.longitude, city:p.city, country:p.country, country_code:p.country_code, source:'search'});
 }
 
 function selectCity(city) {
+  const known = CITIES_DATA.find(c => c.name === city);
+  if (known) { setLocation({lat:known.lat, lng:known.lng, city:known.name, source:'city'}); return; }
+  if (API_BASE) {
+    api(`/geocode?q=${encodeURIComponent(city)}`).then(hits => {
+      if (hits.length) selectPlace(hits[0]);
+      else { activeCity = city; document.getElementById('nav-city').textContent = city; goTo('home'); loadLiveData(); }
+    }).catch(() => goTo('home'));
+    return;
+  }
   activeCity = city;
   document.getElementById('nav-city').textContent = city;
   document.getElementById('hero-city-label').textContent = city;
-  goTo('home');
-  if (API_BASE) loadLiveData();
+  goTo('home'); renderFeed(MOCK_EVENTS);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1674,21 +1828,21 @@ function makeEventCard(ev, idx) {
   <article class="ev-card ${c>=.75?'confirmed':''} dl${Math.min(idx+1,8)}"
     onclick="openDetail(${ev.id})"
     role="listitem"
-    aria-label="${ev.title}, ${city}, ${d.full}, confidence ${pct}%">
+    aria-label="${esc(ev.title)}, ${esc(city)}, ${d.full}, confidence ${pct}%">
     <div class="ev-date" aria-hidden="true">
       <div class="ev-mon">${d.mon}</div>
       <div class="ev-day">${d.day}</div>
     </div>
     <div class="ev-body">
       <div class="ev-tags">
-        <span class="tag tag-${ev.category||'general'}">${ev.category||'general'}</span>
+        <span class="tag tag-${esc(ev.category||'general')}">${esc(ev.category||'general')}</span>
         ${c>=.75?'<span class="tag tag-confirmed">confirmed</span>':''}
         ${ev.status==='uncertain'?'<span class="tag tag-pending">uncertain</span>':''}
         ${ev.token_gated?'<span class="tag tag-token">🔒 Token</span>':''}
       </div>
-      <div class="ev-title">${ev.title}</div>
+      <div class="ev-title">${esc(ev.title)}</div>
       <div class="ev-meta">
-        <span>${city}</span>
+        <span>${esc(city)}</span>
         <span class="ev-meta-sep" aria-hidden="true">·</span>
         <span>${d.full}</span>
         ${ev.evidence>0?`<span class="ev-meta-sep" aria-hidden="true">·</span><span>${ev.evidence} signal${ev.evidence!==1?'s':''}</span>`:''}
@@ -1705,12 +1859,12 @@ function makeEventCard(ev, idx) {
       </div>
       <button class="rsvp-pill ${gone?'going':''}"
         onclick="event.stopPropagation();${ev.token_gated?'openWalletSheet()':'openRsvp('+ev.id+')'}"
-        aria-label="${gone?'You are going':'RSVP to '+ev.title}">
+        aria-label="${gone?'You are going':'RSVP to '+esc(ev.title)}">
         ${gone?'✓ Going':'RSVP'}
       </button>
       <button class="save-btn ${saved?'saved':''}"
         onclick="event.stopPropagation();toggleSave(${ev.id})"
-        aria-label="${saved?'Remove from saved':'Save '+ev.title}"
+        aria-label="${saved?'Remove from saved':'Save '+esc(ev.title)}"
         aria-pressed="${saved}">
         ${saved?'♥':'♡'}
       </button>
@@ -1721,15 +1875,15 @@ function makeEventCard(ev, idx) {
 function makeHCard(ev) {
   const d = fmtDate(ev.start_time);
   const city = ev.venue?.city || ev.city || '—';
-  const emoji = ev.category==='web3'?'⛓':ev.category==='tech'?'💻':ev.category==='culture'?'🎵':'💼';
+  const emoji = ({web3:'⛓',tech:'💻',culture:'🎵',business:'💼',sports:'🏟',food:'🍽',nightlife:'🪩',wellness:'🧘',community:'🤝',education:'📚'})[ev.category]||'📍';
   return `
   <div class="h-card" onclick="openDetail(${ev.id})" role="listitem" tabindex="0"
-       aria-label="${ev.title}, ${d.full}">
+       aria-label="${esc(ev.title)}, ${d.full}">
     <div class="h-card-img"><span aria-hidden="true">${emoji}</span></div>
     <div class="h-card-body">
-      <div class="h-card-tag">${ev.category}</div>
-      <div class="h-card-title">${ev.title}</div>
-      <div class="h-card-meta">${city} · ${d.mon} ${d.day}</div>
+      <div class="h-card-tag">${esc(ev.category)}</div>
+      <div class="h-card-title">${esc(ev.title)}</div>
+      <div class="h-card-meta">${esc(city)} · ${d.mon} ${d.day}</div>
     </div>
   </div>`;
 }
@@ -1760,7 +1914,7 @@ function renderFeed(events) {
 }
 
 function renderFilters() {
-  const filters = ['all','web3','tech','business','culture','upcoming'];
+  const filters = ['all', ...CATEGORIES, 'upcoming'];
   document.getElementById('main-filters').innerHTML = filters.map(f =>
     `<div class="chip ${f===activeFilter?'on':''}" data-filter="${f}"
       onclick="setFilter('${f}')" role="checkbox" aria-checked="${f===activeFilter}" tabindex="0">${f}</div>`
@@ -1775,20 +1929,27 @@ function setFilter(f) {
 function renderSignals(signals) {
   document.getElementById('sig-feed').innerHTML = signals.slice(0,6).map(s => `
     <div class="sig-item" role="article" tabindex="0">
-      <div class="sig-src src-${s.source_type}" aria-label="${s.source_type}">${s.source_type}</div>
+      <div class="sig-src src-${esc(s.source_type)}" aria-label="${esc(s.source_type)}">${esc(s.source_type)}</div>
       <div class="sig-body">
-        <div class="sig-title">${s.title}</div>
-        <div class="sig-meta">${s.location_text||'—'} · ${s.ingested_at||'just now'}</div>
+        <div class="sig-title">${esc(s.title||'(untitled)')}</div>
+        <div class="sig-meta">${esc(s.location_text||'—')} · ${esc(s.ingested_at||'just now')}</div>
       </div>
-      <div class="sig-conf conf-${confClass(s.source_confidence)}">${s.source_confidence.toFixed(2)}</div>
+      <div class="sig-conf conf-${confClass(s.source_confidence)}">${(s.source_confidence??0).toFixed(2)}</div>
     </div>`).join('');
 }
 
 function renderCitiesSidebar() {
-  document.getElementById('cities-widget').innerHTML = CITIES_SIDEBAR.map(c => `
-    <div class="city-item ${c.name===activeCity?'on':''}" onclick="selectCity('${c.name}')"
-         role="listitem" tabindex="0" aria-label="${c.name}, ${c.count} events">
-      <div class="city-name">${c.name}</div>
+  let rows = CITIES_SIDEBAR;
+  if (STATS && STATS.by_city) {
+    const max = Math.max(1, ...STATS.by_city.map(b => b.count));
+    rows = STATS.by_city.map(b => ({name: b.key, count: b.count, pct: Math.round(100 * b.count / max)}));
+  }
+  const el = document.getElementById('cities-widget');
+  if (!rows.length) { el.innerHTML = '<div style="padding:12px 0;color:var(--text-3);font-size:13px">No events with a city yet — ingest something.</div>'; return; }
+  el.innerHTML = rows.map(c => `
+    <div class="city-item ${c.name===activeCity?'on':''}" onclick="selectCity(${JSON.stringify(c.name).replace(/"/g,'&quot;')})"
+         role="listitem" tabindex="0" aria-label="${esc(c.name)}, ${c.count} events">
+      <div class="city-name">${esc(c.name)}</div>
       <div class="city-bar"><div class="city-bar-f" style="width:${c.pct}%"></div></div>
       <div class="city-ct">${c.count}</div>
     </div>`).join('');
@@ -1807,7 +1968,7 @@ function loadMore() {
 }
 
 function refreshFeed() {
-  if (API_BASE) loadLiveData(); else renderFeed(MOCK_EVENTS);
+  if (API_BASE) loadLiveData(true); else renderFeed(MOCK_EVENTS);
   announce('Feed refreshed');
 }
 
@@ -1819,7 +1980,7 @@ function refreshSignals() {
    EVENT DETAIL
 ═══════════════════════════════════════════════════════ */
 function openDetail(id) {
-  const ev = currentEvents.find(e=>e.id===id) || MOCK_EVENTS.find(e=>e.id===id);
+  const ev = currentEvents.find(e=>e.id===id) || (API_BASE?null:MOCK_EVENTS.find(e=>e.id===id));
   if (!ev) return;
   currentDetailEvent = ev;
   const d = fmtDate(ev.start_time);
@@ -1855,7 +2016,7 @@ function openDetail(id) {
     rsvpBtn.classList.remove('disabled');
   }
   document.getElementById('detail-tags').innerHTML = `
-    <span class="tag tag-${ev.category}">${ev.category}</span>
+    <span class="tag tag-${esc(ev.category)}">${esc(ev.category)}</span>
     ${ev.status==='upcoming'?'<span class="tag tag-confirmed">upcoming</span>':''}
     ${ev.token_gated?'<span class="tag tag-token">🔒 Token gated</span>':''}`;
   document.getElementById('token-banner').style.display = ev.token_gated?'flex':'none';
@@ -1868,9 +2029,9 @@ function openDetail(id) {
   const related = MOCK_EVENTS.filter(e=>e.id!==id&&e.category===ev.category).slice(0,4);
   document.getElementById('related-scroll').innerHTML = related.map(r => {
     const rd=fmtDate(r.start_time);
-    return `<div class="rel-card" onclick="openDetail(${r.id})" tabindex="0" aria-label="${r.title}">
+    return `<div class="rel-card" onclick="openDetail(${r.id})" tabindex="0" aria-label="${esc(r.title)}">
       <div class="rel-tag">${r.category}</div>
-      <div class="rel-title">${r.title}</div>
+      <div class="rel-title">${esc(r.title)}</div>
       <div class="rel-date">${r.venue?.city||r.city} · ${rd.mon} ${rd.day}</div>
     </div>`;
   }).join('');
@@ -2003,7 +2164,7 @@ function searchFilter(f,el) {
 }
 function doSearch(q) {
   const res=document.getElementById('search-results');
-  let pool=[...currentEvents,...MOCK_EVENTS.filter(m=>!currentEvents.find(e=>e.id===m.id))];
+  let pool=API_BASE?[...currentEvents]:[...currentEvents,...MOCK_EVENTS.filter(m=>!currentEvents.find(e=>e.id===m.id))];
   if (searchFilterActive!=='all'&&searchFilterActive!=='free'&&searchFilterActive!=='thisweek')
     pool=pool.filter(e=>e.category===searchFilterActive);
   if (searchFilterActive==='free') pool=pool.filter(e=>e.price==='free');
@@ -2017,7 +2178,7 @@ function doSearch(q) {
     );
   }
   if (!pool.length) {
-    res.innerHTML=`<div class="search-no-result"><div class="search-no-result-t">No matches for "${q}"</div><div style="font-size:13px;color:var(--text-3)">Try a different city, category, or keyword.</div></div>`;
+    res.innerHTML=`<div class="search-no-result"><div class="search-no-result-t">No matches for "${esc(q)}"</div><div style="font-size:13px;color:var(--text-3)">Try a different city, category, or keyword.</div></div>`;
     return;
   }
   res.innerHTML=pool.map(ev=>{
@@ -2026,8 +2187,8 @@ function doSearch(q) {
     return `<div class="search-result-ev" onclick="closeSearch();openDetail(${ev.id})" role="option" tabindex="0">
       <div class="sr-date" aria-hidden="true"><div class="sr-mon">${d.mon}</div><div class="sr-day">${d.day}</div></div>
       <div class="sr-body">
-        <div class="sr-title">${ev.title}</div>
-        <div class="sr-meta">${city} · ${ev.category} · ${d.full}</div>
+        <div class="sr-title">${esc(ev.title)}</div>
+        <div class="sr-meta">${esc(city)} · ${esc(ev.category)} · ${d.full}</div>
       </div>
     </div>`;
   }).join('');
@@ -2038,18 +2199,19 @@ function doSearch(q) {
    MAP
 ═══════════════════════════════════════════════════════ */
 function initMap() {
-  if (mapInstance) return;
-  const cityData = CITIES_DATA.find(c=>c.name===activeCity)||CITIES_DATA[0];
-  mapInstance = L.map('leaflet-map',{center:[cityData.lat,cityData.lng],zoom:3,zoomControl:false});
+  if (mapInstance) { if (LOCATION) mapInstance.setView([LOCATION.lat, LOCATION.lng], 11); renderMapPins(currentEvents.length?currentEvents:MOCK_EVENTS); return; }
+  const cityData = LOCATION || CITIES_DATA.find(c=>c.name===activeCity) || CITIES_DATA[0];
+  mapInstance = L.map('leaflet-map',{center:[cityData.lat,cityData.lng],zoom:LOCATION?11:3,zoomControl:false});
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
     attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:20
   }).addTo(mapInstance);
   L.control.zoom({position:'bottomright'}).addTo(mapInstance);
-  renderMapPins(MOCK_EVENTS);
+  renderMapPins(currentEvents.length?currentEvents:MOCK_EVENTS);
+  if (LOCATION) L.circleMarker([LOCATION.lat, LOCATION.lng],{radius:7,color:'#fff',weight:2,fillColor:'#0EA5E9',fillOpacity:1}).addTo(mapInstance).bindTooltip('You are here');
   mapInstance.on('click',()=>{ document.getElementById('map-popover').style.display='none'; });
 }
 
-const CAT_COLORS={web3:'#7C3AED',tech:'#0EA5E9',business:'#F4700A',culture:'#DC2626',general:'#9C8B6E'};
+const CAT_COLORS={web3:'#7C3AED',tech:'#0EA5E9',business:'#F4700A',culture:'#DC2626',sports:'#15803D',food:'#B45309',nightlife:'#BE185D',wellness:'#0F766E',community:'#4338CA',education:'#0369A1',general:'#9C8B6E'};
 
 function makePin(color) {
   return L.divIcon({
@@ -2135,7 +2297,7 @@ function makeTicketCard(ev,isPast) {
   return `
   <div class="ticket-card ${isPast?'past':''}" onclick="openDetail(${ev.id})" role="listitem" tabindex="0">
     <div>
-      <div class="ticket-event-title">${ev.title}</div>
+      <div class="ticket-event-title">${esc(ev.title)}</div>
       <div class="ticket-meta"><span>${city}</span><span>·</span><span>${d.mon} ${d.day}</span><span>·</span><span>${ev.category}</span></div>
       <div class="ticket-action-row">
         <button class="ticket-action" onclick="event.stopPropagation();addToCalendar()">📅 Calendar</button>
@@ -2183,62 +2345,158 @@ function shareEvent() {
 /* ═══════════════════════════════════════════════════════
    API CONNECTION
 ═══════════════════════════════════════════════════════ */
+function apiHeaders(extra={}) {
+  return {...(API_KEY?{'X-API-Key':API_KEY}:{}), ...extra};
+}
+
+async function api(path, opts={}) {
+  const r = await fetch(`${API_BASE}${path}`, {
+    ...opts,
+    headers: apiHeaders({...(opts.body?{'Content-Type':'application/json'}:{}), ...(opts.headers||{})}),
+    signal: opts.signal || AbortSignal.timeout(20000),
+  });
+  if (r.status === 204) return null;
+  let data = null;
+  try { data = await r.json(); } catch {}
+  if (!r.ok) {
+    const detail = data && data.detail
+      ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail))
+      : `${r.status} ${r.statusText}`;
+    const err = new Error(detail); err.status = r.status; throw err;
+  }
+  return data;
+}
+
+function setConnected(url, health) {
+  API_BASE = url;
+  const status=document.getElementById('api-status-msg');
+  const badge=document.getElementById('api-badge');
+  const inputEl=document.getElementById('api-url-input');
+  if (status){status.textContent=`Connected — ${health.app} (${health.env}${health.version?' · v'+health.version:''})`; status.className='api-status ok';}
+  if (badge){badge.textContent='● LIVE'; badge.style.color='var(--verified)';}
+  if (inputEl){inputEl.value=url;}
+}
+
 async function connectApi() {
   const url=document.getElementById('api-url-input').value.trim().replace(/\/$/,'');
   const keyInput=document.getElementById('api-key-input').value.trim();
   if (!url) return;
-  if (keyInput) API_KEY=keyInput;
+  API_KEY=keyInput;
+  try { if (keyInput) sessionStorage.setItem('ei_api_key', keyInput); else sessionStorage.removeItem('ei_api_key'); } catch {}
   const status=document.getElementById('api-status-msg');
-  const badge=document.getElementById('api-badge');
   status.textContent='Connecting…'; status.className='api-status';
   try {
-    const headers=API_KEY?{'X-API-Key':API_KEY}:{};
-    const r=await fetch(`${url}/health`,{signal:AbortSignal.timeout(8000),headers});
+    const r=await fetch(`${url}/health`,{signal:AbortSignal.timeout(8000)});
     const d=await r.json();
-    if (d.ok) {
-      API_BASE=url;
-      status.textContent=`Connected — ${d.app} (${d.env})`; status.className='api-status ok';
-      badge.textContent='● LIVE'; badge.style.color='var(--verified)';
-      await loadLiveData(); announce('API connected');
-    } else throw new Error();
-  } catch {
+    if (!d.ok) throw new Error('health check failed');
+    // Verify the key actually works before declaring victory
+    const probe=await fetch(`${url}/stats`,{headers:apiHeaders(),signal:AbortSignal.timeout(8000)});
+    if (probe.status===401) { status.textContent='✕ API key rejected (401)'; status.className='api-status err'; announce('API key rejected'); return; }
+    setConnected(url, d);
+    await loadLiveData(); announce('API connected');
+  } catch(e) {
     status.textContent='✕ Could not connect — check the URL'; status.className='api-status err';
     announce('API connection failed');
   }
 }
 
-async function loadLiveData() {
+function mapEvent(e) {
+  return {
+    ...e,
+    city: e.venue?.city || e.venue?.name || '—',
+    lat: e.venue?.latitude, lng: e.venue?.longitude,
+    organizer: e.organizer?.name,
+    price: 'free', token_gated: false,
+    evidence: e.evidence_count || 0,
+  };
+}
+
+function setStat(id, value) { const el=document.getElementById(id); if (el) el.textContent=value; }
+
+function setRadius(v) {
+  RADIUS_KM = Number(v) || 25;
+  try { localStorage.setItem('ei_radius', String(RADIUS_KM)); } catch {}
+  if (API_BASE && LOCATION) loadLiveData();
+}
+
+function renderCoverage(cov, state) {
+  const line = document.getElementById('coverage-line'); const txt = document.getElementById('coverage-text');
+  const rr = document.getElementById('radius-row');
+  if (!line) return;
+  if (!LOCATION || !API_BASE) { line.style.display='none'; if (rr) rr.style.display='none'; return; }
+  line.style.display=''; if (rr) { rr.style.display=''; rr.querySelector('input').value = RADIUS_KM; document.getElementById('radius-val').textContent = RADIUS_KM; }
+  line.className = 'coverage-line';
+  if (state === 'scanning') { line.classList.add('scanning'); txt.textContent = `Scanning ${RADIUS_KM} km around ${LOCATION.city}…`; return; }
+  if (!cov) { txt.textContent = ''; return; }
+  const rescan = `<button onclick="loadLiveData(true)">rescan</button>`;
+  if (cov.reason === 'error') { line.classList.add('nosrc'); txt.innerHTML = `Couldn't reach the API for this area. ${rescan}`; return; }
+  if (cov.reason === 'no_sources') {
+    line.classList.add('nosrc');
+    txt.innerHTML = `No live sources configured — showing what's already in the database. ${rescan}`;
+    return;
+  }
+  line.classList.add('fresh');
+  const when = cov.last_scanned_at ? timeAgo(cov.last_scanned_at) : 'just now';
+  const src = cov.sources_run && cov.sources_run.length ? ` via ${cov.sources_run.map(esc).join(', ')}` : '';
+  const added = cov.scanned ? ` · ${cov.events_created} new` : '';
+  txt.innerHTML = `${esc(LOCATION.city)}${LOCATION.country?', '+esc(LOCATION.country):''} · scanned ${esc(when)}${src}${added} ${rescan}`;
+}
+
+async function loadLiveData(refresh=false) {
   if (!API_BASE) return;
-  const headers=API_KEY?{'X-API-Key':API_KEY}:{};
+  const havePoint = LOCATION && Number.isFinite(LOCATION.lat);
+  const eventsUrl = havePoint
+    ? `/discover?lat=${LOCATION.lat}&lng=${LOCATION.lng}&radius_km=${RADIUS_KM}&page_size=100${refresh?'&refresh=true':''}`
+    : `/events?page_size=100&sort=start_time${activeCity && activeCity !== 'Global' ? `&city=${encodeURIComponent(activeCity)}` : ''}`;
+  if (havePoint) renderCoverage(null, 'scanning');
   try {
-    const [evR,sigR]=await Promise.all([
-      fetch(`${API_BASE}/events?page_size=50`,{headers}),
-      fetch(`${API_BASE}/signals?page_size=8`,{headers}),
+    // The scan may create events/signals, so fetch the aggregates *after* it.
+    const ev = await api(eventsUrl, {signal: AbortSignal.timeout(45000)});
+    const [sig, stats, review] = await Promise.all([
+      api(`/signals?page_size=8`),
+      api(`/stats`),
+      api(`/review-queue?status=pending&page_size=25`),
     ]);
-    const ev=await evR.json();
-    const sig=await sigR.json();
-    if (ev.items) {
-      const mapped=ev.items.map(e=>({
-        ...e,
-        city:e.venue?.city||'—',
-        lat:e.venue?.latitude,lng:e.venue?.longitude,
-        organizer:e.organizer?.name,
-        price:'free',token_gated:false,evidence:0,
-      }));
-      renderFeed(mapped);
-      const total=ev.total;
-      const confirmed=ev.items.filter(e=>e.confidence_score>=.75).length;
-      document.getElementById('s-events').textContent=total;
-      document.getElementById('s-confirmed').textContent=confirmed;
-      document.getElementById('s-events-e').textContent=total;
-      document.getElementById('s-confirmed-e').textContent=confirmed;
+    if (stats && stats.categories) { CATEGORIES = stats.categories.filter(c => c !== 'general'); renderFilters(); }
+    if (ev && ev.items) renderFeed(ev.items.map(mapEvent));
+    if (havePoint) {
+      COVERAGE = ev.coverage; renderCoverage(ev.coverage);
+      if (ev.center && ev.center.city && LOCATION.source==='gps') { LOCATION.city = ev.center.city; LOCATION.country = ev.center.country; }
+      // Hero counters describe THIS area; the Control tab keeps the global numbers.
+      setStat('s-events', ev.total);
+      setStat('s-confirmed', ev.items.filter(e=>e.confidence_score>=.75).length);
+      setStat('s-signals', ev.items.reduce((n,e)=>n+(e.evidence_count||0),0));
+    } else if (ev) {
+      setStat('s-events', ev.total);
+      setStat('s-confirmed', ev.items.filter(e=>e.confidence_score>=.75).length);
+      if (stats) setStat('s-signals', stats.signals_total);
     }
-    if (sig.items) {
-      document.getElementById('s-signals').textContent=sig.total;
-      document.getElementById('s-signals-e').textContent=sig.total;
-      renderSignals(sig.items.map(s=>({...s,ingested_at:timeAgo(s.ingested_at)})));
+    if (sig && sig.items) renderSignals(sig.items.map(s=>({...s,ingested_at:timeAgo(s.ingested_at)})));
+    if (stats) {
+      STATS = stats;
+      setStat('s-events-e', stats.events_total);
+      setStat('s-signals-e', stats.signals_total);
+      setStat('s-confirmed-e', stats.events_confirmed);
+      setStat('s-review-e', stats.review_pending);
+      setStat('s-unprocessed-e', stats.signals_unprocessed);
+      setStat('s-areas-e', stats.areas_covered);
+      renderSourcesStatus(stats);
+      renderCitiesSidebar();
     }
-  } catch(e) { console.warn('Live data load failed',e); }
+    if (review && review.items) { REVIEW_ITEMS = review.items; renderReviewQueue(review.total); }
+  } catch(e) {
+    console.warn('Live data load failed', e);
+    if (havePoint) renderCoverage({reason:'error'});
+    const status=document.getElementById('api-status-msg');
+    if (status && e.status===401) { status.textContent='✕ API key rejected (401) — enter it below and reconnect'; status.className='api-status err'; }
+  }
+}
+
+function renderSourcesStatus(stats) {
+  const el=document.getElementById('sources-status'); if (!el || !stats.geo_sources) return;
+  const rows = Object.entries(stats.geo_sources).map(([name, ok]) =>
+    `<span class="src-pill ${ok?'ok':''}" title="${ok?'configured':'no API key — set it in the API environment'}">${esc(name)} ${ok?'✓':'✕'}</span>`).join('');
+  el.innerHTML = `<span class="rq-help" style="margin:0">Live discovery sources:</span> ${rows}`;
 }
 
 async function runIngest() {
@@ -2246,26 +2504,89 @@ async function runIngest() {
   const result=document.getElementById('ingest-result');
   const source=document.getElementById('ingest-source').value;
   const query=document.getElementById('ingest-query').value.trim();
+  const urlsRaw=(document.getElementById('ingest-urls')?.value||'').trim();
+  const urls=urlsRaw?urlsRaw.split(/[\n,]+/).map(u=>u.trim()).filter(Boolean):undefined;
   if (!API_BASE) { result.textContent='⚠ Connect your API first'; result.className='ingest-res err'; return; }
   btn.disabled=true; btn.textContent='Ingesting…';
   result.textContent='—'; result.className='ingest-res';
   try {
-    const h={'Content-Type':'application/json',...(API_KEY?{'X-API-Key':API_KEY}:{})};
-    const r=await fetch(`${API_BASE}/signals/ingest`,{method:'POST',headers:h,body:JSON.stringify({source,query})});
-    const d=await r.json();
-    if (d.run_id) {
-      result.textContent=`✓ run #${d.run_id} — ${d.count} signal${d.count!==1?'s':''} created`;
-      result.className='ingest-res ok';
-      await fetch(`${API_BASE}/signals/cluster`,{method:'POST',headers:h});
-      await loadLiveData();
-      announce(`Ingest complete: ${d.count} signals`);
-    } else throw new Error();
+    const body={source, query: query||undefined, city: activeCity!=='Global'?activeCity:undefined, urls};
+    if (LOCATION && Number.isFinite(LOCATION.lat)) { body.lat=LOCATION.lat; body.lng=LOCATION.lng; body.radius_km=RADIUS_KM; }
+    const d=await api('/signals/ingest',{method:'POST',body:JSON.stringify(body)});
+    const c=await api('/signals/cluster',{method:'POST'});
+    result.textContent=`✓ run #${d.run_id} — ${d.count} signal${d.count!==1?'s':''} · ${c.created_event_ids.length} new event${c.created_event_ids.length!==1?'s':''} · ${c.linked_signal_ids.length} linked · ${c.queued_review_ids.length} to review`;
+    result.className='ingest-res ok';
+    await loadLiveData();
+    announce(`Ingest complete: ${d.count} signals`);
   } catch(e) {
-    result.textContent='✕ Ingest failed'; result.className='ingest-res err';
+    result.textContent=`✕ Ingest failed — ${e.message}`; result.className='ingest-res err';
   } finally {
     btn.disabled=false; btn.textContent='↓ Ingest Signals';
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   REVIEW QUEUE
+═══════════════════════════════════════════════════════ */
+function renderReviewQueue(total) {
+  const list=document.getElementById('review-list');
+  const count=document.getElementById('review-count');
+  if (!list) return;
+  if (count) count.textContent = total ?? REVIEW_ITEMS.length;
+  if (!REVIEW_ITEMS.length) {
+    list.innerHTML='<div class="rq-empty">Nothing to review — every signal was linked or seeded automatically.</div>';
+    return;
+  }
+  list.innerHTML = REVIEW_ITEMS.map(it => {
+    const sig=it.signal||{}; const ev=it.candidate_event||{};
+    const sd=fmtDate(sig.detected_start_time); const ed=fmtDate(ev.start_time);
+    const pct=Math.round((it.score||0)*100);
+    return `
+    <div class="rq-item" id="rq-${it.id}" role="group" aria-label="Review item ${it.id}">
+      <div class="rq-head">
+        <span class="rq-score conf-${confClass(it.score||0)}">${pct}% match</span>
+        <span class="rq-meta">#${it.id} · ${esc(timeAgo(it.created_at))}</span>
+      </div>
+      <div class="rq-pair">
+        <div class="rq-side">
+          <div class="rq-label">Signal <span class="sig-src src-${esc(sig.source_type||'manual')}">${esc(sig.source_type||'?')}</span></div>
+          <div class="rq-title">${esc(sig.title||'(untitled)')}</div>
+          <div class="rq-sub">${esc(sig.location_text||'—')} · ${sd.full}</div>
+          ${sig.url?`<a class="rq-link" href="${esc(sig.url)}" target="_blank" rel="noopener noreferrer">source ↗</a>`:''}
+        </div>
+        <div class="rq-arrow" aria-hidden="true">⇄</div>
+        <div class="rq-side">
+          <div class="rq-label">Candidate event</div>
+          <div class="rq-title">${esc(ev.title||'(deleted)')}</div>
+          <div class="rq-sub">${esc(ev.venue?.city||ev.venue?.name||'—')} · ${ed.full} · ${ev.evidence_count??0} signal${ev.evidence_count===1?'':'s'}</div>
+        </div>
+      </div>
+      <div class="rq-actions">
+        <button class="rq-btn ok" onclick="resolveReview(${it.id},'approve_link')" ${ev.id?'':'disabled'}>✓ Same event</button>
+        <button class="rq-btn" onclick="resolveReview(${it.id},'reject')">Different event</button>
+        <button class="rq-btn warn" onclick="resolveReview(${it.id},'discard')">Not an event</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function resolveReview(id, action) {
+  const el=document.getElementById(`rq-${id}`);
+  if (el) el.classList.add('busy');
+  try {
+    const r=await api(`/review-queue/${id}/resolve`,{method:'POST',body:JSON.stringify({action})});
+    REVIEW_ITEMS=REVIEW_ITEMS.filter(i=>i.id!==id);
+    renderReviewQueue();
+    announce(`Review ${r.status}`);
+    await loadLiveData();
+  } catch(e) {
+    if (el) el.classList.remove('busy');
+    announce(`Review failed: ${e.message}`);
+    alert(`Could not resolve: ${e.message}`);
+  }
+}
+
+async function refreshReview() { await loadLiveData(); announce('Review queue refreshed'); }
 
 /* ═══════════════════════════════════════════════════════
    UTILS
@@ -2288,28 +2609,30 @@ renderSignals(MOCK_SIGNALS);
 renderCitiesSidebar();
 doSearch('');
 
-// Update demo stats
-document.getElementById('s-events').textContent='247';
-document.getElementById('s-signals').textContent='1.2k';
-document.getElementById('s-confirmed').textContent='89';
+// Demo-mode stats are derived from the demo dataset rather than invented
+document.getElementById('s-events').textContent=MOCK_EVENTS.length;
+document.getElementById('s-signals').textContent=MOCK_SIGNALS.length;
+document.getElementById('s-confirmed').textContent=MOCK_EVENTS.filter(e=>e.confidence_score>=.75).length;
 
 /* Auto-detect API on same origin */
 (async function autoConnect() {
+  try { API_KEY = sessionStorage.getItem('ei_api_key') || ''; if (API_KEY) document.getElementById('api-key-input').value = API_KEY; } catch {}
   if (window.location.protocol==='file:') return;
   const origin=window.location.origin;
   try {
     const r=await fetch(origin+'/health',{signal:AbortSignal.timeout(4000)});
     const d=await r.json();
-    if (d.ok) {
-      API_BASE=origin;
-      const statusEl=document.getElementById('api-status-msg');
-      const badgeEl=document.getElementById('api-badge');
-      const inputEl=document.getElementById('api-url-input');
-      if (statusEl){statusEl.textContent=`Connected — ${d.app} (${d.env})`;statusEl.className='api-status ok';}
-      if (badgeEl){badgeEl.textContent='● LIVE';badgeEl.style.color='var(--verified)';}
-      if (inputEl){inputEl.value=origin;inputEl.disabled=true;}
-      await loadLiveData();
+    if (!d.ok) return;
+    setConnected(origin, d);
+    // If the API is key-protected and we don't have one yet, say so clearly instead of showing demo data.
+    const probe=await fetch(origin+'/stats',{headers:apiHeaders(),signal:AbortSignal.timeout(6000)});
+    if (probe.status===401) {
+      const st=document.getElementById('api-status-msg');
+      if (st){st.textContent='Connected, but the API needs a key — enter it below and press Connect'; st.className='api-status err';}
+      document.getElementById('api-badge').textContent='● LOCKED';
+      return;
     }
+    await loadLiveData();
   } catch {}
 })();
 </script>
