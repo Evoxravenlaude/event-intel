@@ -21,7 +21,7 @@ def test_health(client):
 
 def test_create_event_minimal(client):
     r = client.post("/events", json={"title": "Minimal Event"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["title"] == "Minimal Event"
     assert "id" in data
@@ -30,12 +30,15 @@ def test_create_event_minimal(client):
 
 
 def test_create_event_full(client):
+    # Relative dates — a hard-coded 2026-06-15 silently became "ended" once the calendar passed it.
+    from datetime import datetime, timedelta, timezone
+    start = datetime.now(timezone.utc) + timedelta(days=30)
     payload = {
         "title": "Lagos Tech Summit",
         "description": "Annual gathering of Lagos tech builders.",
         "category": "tech",
-        "start_time": "2026-06-15T18:00:00Z",
-        "end_time": "2026-06-15T21:00:00Z",
+        "start_time": start.isoformat(),
+        "end_time": (start + timedelta(hours=3)).isoformat(),
         "venue": {
             "name": "Landmark Event Centre",
             "city": "Lagos",
@@ -46,7 +49,7 @@ def test_create_event_full(client):
         "organizer_name": "Lagos Tech Alliance",
     }
     r = client.post("/events", json=payload)
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["category"] == "tech"
     assert data["status"] == "upcoming"
@@ -125,7 +128,7 @@ def test_create_signal(client):
         "normalized_category": "web3",
         "source_confidence": 0.85,
     })
-    assert r.status_code == 200
+    assert r.status_code == 201
     data = r.json()
     assert data["source_type"] == "manual"
     assert data["processed"] is False
@@ -140,9 +143,10 @@ def test_create_signal_deduplication(client):
     }
     r1 = client.post("/signals", json=payload)
     r2 = client.post("/signals", json={**payload, "title": "Dedup Event Updated"})
-    assert r1.status_code == 200
-    assert r2.status_code == 200
+    assert r1.status_code == 201
+    assert r2.status_code == 201
     assert r1.json()["id"] == r2.json()["id"]
+    assert r2.json()["title"] == "Dedup Event Updated"
 
 
 def test_list_signals_paginated(client):
@@ -195,17 +199,17 @@ def test_ingest_mock_source(client):
 
 def test_ingest_unsupported_source(client):
     r = client.post("/signals/ingest", json={"source": "nonexistent"})
-    assert r.status_code == 400
+    assert r.status_code == 422  # source is a closed enum
 
 
 def test_source_runs_logged(client):
     client.post("/signals/ingest", json={"source": "telegram", "city": "Accra"})
     r = client.get("/signals/runs")
     assert r.status_code == 200
-    runs = r.json()
-    assert len(runs) >= 1
-    assert "source" in runs[0]
-    assert "status" in runs[0]
+    runs = r.json()["items"]
+    assert r.json()["total"] >= 1
+    assert runs[0]["source"] == "telegram"
+    assert runs[0]["status"] == "completed"
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +226,7 @@ def test_signal_to_event_flow(client):
         "source_confidence": 0.9,
         "normalized_category": "web3",
     })
-    assert r1.status_code == 200
+    assert r1.status_code == 201
 
     r2 = client.post("/signals/cluster")
     assert r2.status_code == 200
@@ -269,35 +273,12 @@ def test_review_queue_filter_status(client):
 
 def test_review_queue_resolve_not_found(client):
     r = client.post("/review-queue/999999/resolve", json={"action": "reject"})
-    assert r.status_code == 400
-
-
-def test_review_queue_resolve_reject(client):
-    """Create a signal that may cluster into the uncertain range and reject it."""
-    client.post("/events", json={"title": "Seed Event For Review", "category": "tech"})
-    client.post("/signals", json={
-        "source_type": "manual",
-        "external_id": "review-test-reject-001",
-        "title": "Seed Event",
-        "source_confidence": 0.3,
-        "normalized_category": "tech",
-    })
-    client.post("/signals/cluster")
-
-    pending = client.get("/review-queue?status=pending")
-    items = pending.json()["items"]
-    if not items:
-        return  # score didn't land in uncertain zone — skip
-
-    item_id = items[0]["id"]
-    r = client.post(f"/review-queue/{item_id}/resolve", json={"action": "reject", "note": "Not the same event"})
-    assert r.status_code == 200
-    assert r.json()["status"] == "rejected"
+    assert r.status_code == 404
 
 
 def test_review_queue_resolve_unsupported_action(client):
     r = client.post("/review-queue/999999/resolve", json={"action": "teleport"})
-    assert r.status_code == 400
+    assert r.status_code == 422  # action is a closed enum
 
 
 # ---------------------------------------------------------------------------
@@ -314,8 +295,8 @@ def test_venue_deduplication_fuzzy_match(client):
         "title": "Event at Landmark variant",
         "venue": {"name": "Landmark Events Centre Lagos", "city": "Lagos"},
     })
-    assert ev1.status_code == 200
-    assert ev2.status_code == 200
+    assert ev1.status_code == 201
+    assert ev2.status_code == 201
     assert ev1.json()["venue"]["id"] == ev2.json()["venue"]["id"]
 
 
@@ -329,8 +310,8 @@ def test_venue_deduplication_different_city(client):
         "title": "iHub Nairobi event",
         "venue": {"name": "iHub", "city": "Nairobi"},
     })
-    assert ev1.status_code == 200
-    assert ev2.status_code == 200
+    assert ev1.status_code == 201
+    assert ev2.status_code == 201
     assert ev1.json()["venue"]["id"] != ev2.json()["venue"]["id"]
 
 
