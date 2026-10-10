@@ -24,7 +24,7 @@ jobs:
 
       - name: Test
         env:
-          DATABASE_URL: sqlite:///:memory:
+          DATABASE_URL: "sqlite:///:memory:"
           EMBEDDINGS_ENABLED: "false"
           ENABLE_MOCK_ADAPTERS: "true"
         run: pytest -q --cov=app --cov-report=term-missing
