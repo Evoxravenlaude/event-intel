@@ -1,0 +1,3 @@
+# Optional: multilingual sentence embeddings (paraphrase-multilingual-MiniLM-L12-v2).
+# Installed by default via requirements.txt. Skip with: docker build --build-arg WITH_EMBEDDINGS=false
+sentence-transformers==3.4.1

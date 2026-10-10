@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install (without ML extras — tests run with EMBEDDINGS_ENABLED=false)
+        run: |
+          grep -v '^-r requirements-ml.txt' requirements.txt > /tmp/req.txt
+          pip install -r /tmp/req.txt pytest==8.4.1 pytest-cov==6.2.1
+
+      - name: Test
+        env:
+          DATABASE_URL: sqlite:///:memory:
+          EMBEDDINGS_ENABLED: "false"
+          ENABLE_MOCK_ADAPTERS: "true"
+        run: pytest -q --cov=app --cov-report=term-missing
+
+      - name: Alembic migrations apply cleanly on SQLite
+        env:
+          DATABASE_URL: sqlite:////tmp/ci_migrate.db
+          EMBEDDINGS_ENABLED: "false"
+        run: alembic upgrade head && alembic downgrade base && alembic upgrade head
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (no embeddings, to keep CI fast)
+        run: docker build --build-arg WITH_EMBEDDINGS=false -t event-intel:ci .
+      - name: Container boots and serves /health
+        run: |
+          docker run -d --name ei -p 8000:8000 \
+            -e DATABASE_URL=sqlite:////tmp/ci.db -e EMBEDDINGS_ENABLED=false event-intel:ci
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8000/health; then exit 0; fi
+            sleep 2
+          done
+          docker logs ei; exit 1

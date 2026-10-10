@@ -8,13 +8,15 @@ psycopg[binary]==3.2.9
 httpx==0.28.1
 beautifulsoup4==4.13.4
 python-dateutil==2.9.0.post0
-feedparser==6.0.11
+# 6.0.12+ vendors sgmllib; 6.0.11 depended on sgmllib3k, which does not build on Python 3.13.
+feedparser==6.0.14
 icalendar==6.3.1
-pytest==8.4.1
-# Multilingual sentence embeddings (clustering similarity)
-# Model: paraphrase-multilingual-MiniLM-L12-v2 (~50MB, CPU-friendly)
-# Remove if running in a very memory-constrained environment (system falls back to Jaccard)
-sentence-transformers==3.4.1
 # pgvector SQLAlchemy integration (Postgres only — safe to keep on SQLite)
 pgvector==0.3.6
 aiofiles==24.1.0
+
+# Multilingual sentence embeddings for clustering similarity.
+# NOTE: this pulls in torch — the model itself is ~120MB but the dependency
+# footprint is >1GB. The Docker build arg WITH_EMBEDDINGS=false skips it and
+# the system falls back to Jaccard similarity automatically.
+-r requirements-ml.txt
