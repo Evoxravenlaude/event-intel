@@ -8,7 +8,9 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.types import EmbeddingType  # noqa: F401 — registers the type with SA metadata
 from app.models.event import (  # noqa: F401 — all models must be imported for autogenerate
+    CoverageCell,
     Event,
+    GeocodeCache,
     EventEvidence,
     Organizer,
     RawSignal,
