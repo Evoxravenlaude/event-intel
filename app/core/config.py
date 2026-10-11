@@ -51,11 +51,17 @@ class Settings(BaseSettings):
     # An area scanned within this many minutes is served from the DB without re-scanning
     discover_stale_minutes: int = 360
     # Which sources a live scan runs. Only geo-capable adapters are used; others ignored.
-    discover_sources: str = "ticketmaster,seatgeek"
+    discover_sources: str = "luma,ticketmaster,seatgeek"
     # Scheduler: re-scan cells that were requested within the last N days
     coverage_rescan_days: int = 7
 
     # Geo-capable global sources
+    # Luma city feeds — keyless, ~80 cities worldwide (see services/luma_places.py)
+    luma_api_base_url: str = "https://api.lu.ma"
+    # A Luma city page covers its metro area: a city counts for a request if its
+    # centre is within radius + this many km.
+    luma_place_reach_km: float = 40.0
+
     ticketmaster_api_key: str | None = None
     ticketmaster_base_url: str = "https://app.ticketmaster.com/discovery/v2"
     seatgeek_client_id: str | None = None

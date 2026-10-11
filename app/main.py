@@ -210,6 +210,22 @@ def ready():
     }
 
 
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    # Public page crawlable (link previews in WhatsApp/X/Telegram need this); API paths not.
+    from fastapi.responses import PlainTextResponse
+    body = "User-agent: *\nAllow: /$\nAllow: /static/\nDisallow: /signals\nDisallow: /review-queue\nDisallow: /stats\n"
+    return PlainTextResponse(body)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    from fastapi.responses import Response as RawResponse
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#F4700A"/>'
+           '<path d="M36 10 20 36h11l-3 18 16-26H33z" fill="#fff"/></svg>')
+    return RawResponse(content=svg, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
+
+
 # Serve frontend at root — only if index.html exists
 @app.get("/", include_in_schema=False)
 def serve_frontend():

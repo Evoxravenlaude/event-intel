@@ -30,7 +30,7 @@ scheduler.
 
 - **Location-first discovery** — `/discover` takes a point + radius, reverse-geocodes it, scans geo-capable sources if the area isn't fresh, clusters, and returns what's nearby with a coverage report. Scan circles are recorded so the next person in that city gets an instant answer
 - **Geocoding** — Nominatim (no key) with a DB cache and an offline gazetteer fallback; venues that arrive as text get coordinates, venues that arrive as coordinates get a city/country
-- **Global sources** — Ticketmaster Discovery (30+ countries) and SeatGeek answer "within N km of here" directly; the per-city feed sources (Luma, Eventbrite, Telegram, LinkedIn, X) still work for communities those platforms don't cover
+- **Global sources** — Luma city feeds (~80 cities, no key), Ticketmaster Discovery (30+ countries) and SeatGeek answer "within N km of here" directly; the per-city feed sources (Luma, Eventbrite, Telegram, LinkedIn, X) still work for communities those platforms don't cover
 - **API** — events, signals, source runs, review queue, dashboard stats; all list endpoints paginated and filterable
 - **Clustering** — embedding cosine similarity (multilingual MiniLM, pgvector-indexed on Postgres) with Jaccard fallback, plus category / time / distance boosts; hard distance/time vetoes so "Jazz Night" in two cities never merges; configurable thresholds
 - **Ten categories** — web3, tech, business, culture, sports, food, nightlife, wellness, community, education — inferred from multilingual keywords (English, French, Pidgin, Swahili, Yoruba) and from source taxonomies
@@ -166,6 +166,7 @@ Candidates come from the pgvector HNSW index on Postgres; elsewhere every event 
 
 | Source | Live input | Notes |
 |---|---|---|
+| `luma` | Nothing — keyless. Or explicit `.ics` / page URLs | **Geo-capable.** Luma runs a curated page + iCal feed for ~80 cities (Lagos, Nairobi, London, NYC, Singapore, …). `/discover` picks the Luma cities near the point and pulls their feeds; the city directory is fetched live from Luma daily, with a built-in snapshot as fallback |
 | `ticketmaster` | `TICKETMASTER_API_KEY` (free) | **Geo-capable.** Discovery API v2: concerts, sports, theatre, family in 30+ countries. Backbone of `/discover` |
 | `seatgeek` | `SEATGEEK_CLIENT_ID` (free) | **Geo-capable.** Strongest in North America; complements Ticketmaster |
 | `luma` | `.ics` feed URLs, or Luma page URLs | Every Luma calendar has an ICS feed. Pages are parsed from their schema.org JSON-LD |

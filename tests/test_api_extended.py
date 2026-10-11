@@ -206,3 +206,11 @@ def test_unique_violation_maps_to_409(client, db_session):
         integrity_error_handler(Request(scope), IntegrityError("stmt", {}, Exception("dup")))
     )
     assert resp.status_code == 409
+
+
+def test_robots_and_favicon_public_even_with_api_key(client, monkeypatch):
+    from app.core import config as cfg
+    monkeypatch.setattr(cfg.settings, "api_key", "k")
+    r = client.get("/robots.txt")
+    assert r.status_code == 200 and "Allow: /$" in r.text and "Disallow: /signals" in r.text
+    assert client.get("/favicon.ico").headers["content-type"].startswith("image/svg")

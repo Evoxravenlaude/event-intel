@@ -105,12 +105,26 @@ class BaseAdapter:
 
 class LumaAdapter(BaseAdapter):
     """
-    Luma: ICS calendar feeds (every Luma calendar exposes one) or event /
-    calendar page URLs (parsed via the schema.org JSON-LD Luma embeds).
+    Luma.
+
+    Geo mode (used by /discover): Luma publishes a curated events page plus an
+    iCal feed for ~80 cities (Lagos, Nairobi, London, Singapore, …). For a
+    point + radius we pick the nearby Luma cities from the directory
+    (services/luma_places.py) and pull their feeds — no API key needed.
+    Events outside the requested circle are dropped once they have coordinates.
+
+    Feed mode: explicit ICS calendar feeds or event / calendar page URLs
+    (LUMA_FEED_URLS or the ingest payload).
     """
     source_name = "luma"
+    supports_geo = True
+
+    def is_configured(self) -> bool:
+        return True   # public feeds, no credentials
 
     def fetch(self, city: str | None, query: str | None, urls: list[str] | None = None, geo: GeoQuery | None = None) -> SourceAdapterResult:
+        if geo is not None and not urls:
+            return self._fetch_geo(geo, query)
         feed_urls = urls or settings.split_csv(settings.luma_feed_urls)
         items: list[RawSignalCreate] = []
         errors: list[str] = []
@@ -131,10 +145,43 @@ class LumaAdapter(BaseAdapter):
                 else:
                     items.extend(self._parse_page(url, response.text, city))
 
-        if not items and not errors and settings.enable_mock_adapters:
+        if query:
+            q = query.lower()
+            items = [i for i in items if q in f"{i.title or ''} {i.body or ''}".lower()]
+        if not items and not errors and not feed_urls and settings.enable_mock_adapters:
             items.append(self._mock(city, query, "Mock Luma result. Set LUMA_FEED_URLS to a Luma .ics feed or pass page URLs.", 0.55))
             fetched_count = max(fetched_count, 1)
         return SourceAdapterResult(items=items, fetched_count=fetched_count, errors=errors)
+
+    def _fetch_geo(self, geo: GeoQuery, query: str | None) -> SourceAdapterResult:
+        from app.services.geo import haversine_km
+        from app.services.luma_places import places_near
+        places = places_near(geo.lat, geo.lng, geo.radius_km)
+        items: list[RawSignalCreate] = []
+        errors: list[str] = []
+        fetched = 0
+        if not places:
+            return SourceAdapterResult(items=[], fetched_count=0)
+        with self._client() as client:
+            for place, _dist in places:
+                try:
+                    r = client.get(place.ics_url)
+                    r.raise_for_status()
+                except httpx.HTTPError as exc:
+                    errors.append(f"luma {place.slug}: {exc}")
+                    logger.warning("Luma city feed %s failed: %s", place.slug, exc)
+                    continue
+                for sig in self._parse_ics(place.ics_url, r.content, place.name):
+                    fetched += 1
+                    # Keep only what is inside the requested circle (when we know where it is)
+                    if sig.latitude is not None and sig.longitude is not None:
+                        if haversine_km(geo.lat, geo.lng, sig.latitude, sig.longitude) > geo.radius_km:
+                            continue
+                    items.append(sig)
+        if query:
+            q = query.lower()
+            items = [i for i in items if q in f"{i.title or ''} {i.body or ''}".lower()]
+        return SourceAdapterResult(items=items, fetched_count=fetched, errors=errors)
 
     def _parse_page(self, url: str, html: str, city: str | None) -> list[RawSignalCreate]:
         events = extract_jsonld_events(html)
@@ -160,9 +207,18 @@ class LumaAdapter(BaseAdapter):
                 continue
             title = str(component.get("summary", "") or "Untitled event")
             description = str(component.get("description", "") or "")
-            location_text = str(component.get("location", "") or "") or None
+            location_text = str(component.get("location", "") or "").strip() or None
             event_url = str(component.get("url", "") or "") or None
             uid = str(component.get("uid", "") or "") or None
+            # Luma puts the event page in LOCATION when the address is hidden
+            # until registration (or the event is online) — that's a link, not a place.
+            if location_text and re.match(r"^https?://", location_text):
+                event_url = event_url or location_text
+                location_text = None
+            if not event_url:
+                m = re.search(r"https?://(?:lu\.ma|luma\.com)/[^\s)>\]]+", description)
+                if m:
+                    event_url = m.group(0)
 
             start = component.get("dtstart")
             end = component.get("dtend")

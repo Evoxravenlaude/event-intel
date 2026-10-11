@@ -105,6 +105,22 @@ def get_or_create_venue(
     return venue
 
 
+def split_venue_text(text: str) -> tuple[str, str | None]:
+    """
+    "Ilé MIMU, 1 Adeola Odeku St, Victoria Island, Lagos 106104, Lagos, Nigeria"
+      → ("Ilé MIMU", <full string as address>)
+    "Landmark Centre, Lagos" → ("Landmark Centre", "Landmark Centre, Lagos")
+    "Lagos" → ("Lagos", None)
+    The full string is kept as the address because it geocodes far better
+    than the venue name alone.
+    """
+    text = text.strip()
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if len(parts) < 2:
+        return text, None
+    return parts[0][:255], text[:500]
+
+
 def _enrich_venue_geo(db: Session, venue: Venue) -> None:
     """Fill coordinates from text, or city/country from coordinates. Never raises."""
     from app.services import geocoding
@@ -222,9 +238,11 @@ def create_event_from_signal(db: Session, signal: RawSignal, *, evidence_type: s
         # the ingest city, for ICS it is a venue string ("Landmark Centre, Lagos").
         # get_or_create_venue geocodes it: coordinates from the text, and the
         # real city/country from the coordinates (gazetteer fallback offline).
+        name, address = split_venue_text(signal.location_text)
         venue = get_or_create_venue(
             db,
-            name=signal.location_text,
+            name=name,
+            address=address,
             city=None,
             latitude=signal.latitude if signal.has_coordinates else None,
             longitude=signal.longitude if signal.has_coordinates else None,

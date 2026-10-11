@@ -24,7 +24,7 @@ from app.core.config import settings
 
 # Paths that never require authentication
 EXEMPT_PREFIXES = ("/static/", "/docs", "/redoc", "/openapi.json")
-EXEMPT_EXACT = {"/", "/health", "/ready"}
+EXEMPT_EXACT = {"/", "/health", "/ready", "/robots.txt", "/favicon.ico"}
 
 
 def _is_exempt(path: str) -> bool:

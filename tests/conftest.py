@@ -20,6 +20,20 @@ os.environ.setdefault("API_KEY", "")
 os.environ.setdefault("WEBHOOK_URLS", "")
 os.environ.setdefault("SCHEDULER_SOURCES", "")
 os.environ.setdefault("GEOCODING_ENABLED", "false")   # offline gazetteer only — no network in tests
+# Live-source discovery tests opt in to Luma explicitly; by default scans use the mocked TM/SeatGeek fixtures.
+os.environ.setdefault("DISCOVER_SOURCES", "ticketmaster,seatgeek")
+
+
+@pytest.fixture(autouse=True)
+def _no_live_luma_directory(monkeypatch):
+    """Never fetch Luma's live city directory in tests — use the built-in snapshot."""
+    from app.services import luma_places
+    def _offline():
+        raise RuntimeError("network disabled in tests")
+    monkeypatch.setattr(luma_places, "_fetch_live", _offline)
+    luma_places.reset_cache()
+    yield
+    luma_places.reset_cache()
 
 
 @pytest.fixture()

@@ -200,7 +200,7 @@ def test_seatgeek_geo_query(monkeypatch):
 
 
 def test_geo_sources_registry():
-    assert set(ad.geo_sources()) == {"ticketmaster", "seatgeek"}
+    assert set(ad.geo_sources()) == {"luma", "ticketmaster", "seatgeek"}
 
 
 def test_ingest_endpoint_accepts_point(client, tm_live):

@@ -118,7 +118,9 @@ def run_ingest_job(
         from app.services.discovery import rescan_recent_cells
         db = SessionLocal()
         try:
-            return rescan_recent_cells(db)
+            summary = rescan_recent_cells(db)
+            logger.info("Coverage rescan done: %d area(s), %d signal(s)", summary.get("areas", 0), summary.get("signals", 0))
+            return summary
         finally:
             db.close()
 
