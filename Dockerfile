@@ -46,12 +46,13 @@ RUN mkdir -p /app/.cache/huggingface && chown -R appuser:appgroup /app/.cache \
 
 USER appuser
 
+# No EXPOSE / PORT here on purpose: Railway injects $PORT (8080) and routes the
+# public domain to it. Advertising 8000 made Railway's domain target the wrong
+# port ("Application failed to respond") while healthchecks still passed.
+# bootstrap.sh falls back to 8000 when PORT is unset (local `docker run`).
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000 \
     HF_HOME=/app/.cache/huggingface
-
-EXPOSE 8000
 
 # bootstrap.sh runs `alembic upgrade head` then starts uvicorn.
 # It is a bash script (uses `set -o pipefail`), so it must NOT be run with `sh`

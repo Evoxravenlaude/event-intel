@@ -41,7 +41,9 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from sqlalchemy import or_, select, func
+import threading
+
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
@@ -138,11 +140,28 @@ def _get_candidates(db: Session, signal: RawSignal, newly_created: list[Event]) 
 # Main entry point
 # ---------------------------------------------------------------------------
 
+# Only one cluster pass may run at a time. Two concurrent passes (e.g. two
+# scheduler jobs finishing together) both select the SAME unprocessed signals
+# and either create duplicate events or collide on unique keys. In-process
+# threads serialise on this lock; separate processes / replicas serialise on a
+# Postgres transaction-scoped advisory lock.
+_CLUSTER_LOCK = threading.Lock()
+_ADVISORY_LOCK_KEY = 0x45564E54   # "EVNT"
+
+
 def cluster_signals(db: Session, limit: int | None = None) -> tuple[list[int], list[int], list[int]]:
     """
     Process up to `limit` unprocessed signals (default: settings.cluster_batch_size).
     Returns (created_event_ids, linked_signal_ids, queued_review_ids).
+    Serialised: concurrent callers wait their turn, then see only what is still unprocessed.
     """
+    with _CLUSTER_LOCK:
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _ADVISORY_LOCK_KEY})
+        return _cluster_signals_locked(db, limit)
+
+
+def _cluster_signals_locked(db: Session, limit: int | None) -> tuple[list[int], list[int], list[int]]:
     created_ids: list[int] = []
     linked_ids: list[int] = []
     queued_ids: list[int] = []

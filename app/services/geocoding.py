@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -246,14 +247,25 @@ def _cache_has(db: Session, key: str) -> bool:
 
 
 def _cache_put(db: Session, key: str, query: str, place: Place | None) -> None:
-    row = db.execute(select(GeocodeCache).where(GeocodeCache.key == key)).scalar_one_or_none()
+    """
+    Best-effort cache write. Runs in a SAVEPOINT so that losing a race with
+    another worker (unique violation on `key`) rolls back only this insert —
+    previously it poisoned the caller's whole transaction and crashed the
+    cluster pass with PendingRollbackError.
+    """
     payload = json.dumps(place.to_dict()) if place else None
-    if row:
-        row.result = payload
-        row.created_at = datetime.now(timezone.utc)
-    else:
-        db.add(GeocodeCache(key=key, query=query[:500], result=payload))
-    db.flush()
+    try:
+        with db.begin_nested():
+            row = db.execute(select(GeocodeCache).where(GeocodeCache.key == key)).scalar_one_or_none()
+            if row:
+                row.result = payload
+                row.created_at = datetime.now(timezone.utc)
+            else:
+                db.add(GeocodeCache(key=key, query=query[:500], result=payload))
+    except IntegrityError:
+        logger.debug("geocode cache key %s written concurrently — keeping the other copy", key)
+    except Exception as exc:  # the cache must never break the caller
+        logger.warning("geocode cache write failed for %s: %s", key, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -270,11 +282,14 @@ def reverse(db: Session, lat: float, lng: float) -> Place | None:
         return cached
     place: Place | None = None
     if _provider_available():
+        fetched = False
         try:
             place = _provider_reverse(lat, lng)
-            _cache_put(db, key, f"{lat},{lng}", place)
-        except Exception as exc:
+            fetched = True
+        except Exception as exc:   # network / HTTP / JSON — the provider, not us
             _trip_breaker(exc)
+        if fetched:
+            _cache_put(db, key, f"{lat},{lng}", place)
     if place is None:
         place = nearest_gazetteer_city(lat, lng)
     return place
@@ -297,13 +312,16 @@ def forward(db: Session, text: str, city_hint: str | None = None) -> Place | Non
         return _cache_get(db, key)
     place: Place | None = None
     if _provider_available():
+        fetched = False
         try:
             place = _provider_forward(query)
             if place is None and query != text:
                 place = _provider_forward(text)
-            _cache_put(db, key, query, place)
-        except Exception as exc:
+            fetched = True
+        except Exception as exc:   # network / HTTP / JSON — the provider, not us
             _trip_breaker(exc)
+        if fetched:
+            _cache_put(db, key, query, place)
     if place is None:
         place = gazetteer_lookup(text) or (gazetteer_lookup(city_hint) if city_hint else None)
     return place
