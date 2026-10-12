@@ -73,7 +73,7 @@ def nominatim(monkeypatch):
 
 def test_reverse_uses_provider_and_caches(db_session, nominatim):
     p1 = geocoding.reverse(db_session, 48.8566, 2.3522)
-    assert p1.city == "Paris" and p1.country_code == "FR" and p1.source == "geocoder"
+    assert p1.city == "Paris" and p1.country_code == "FR" and p1.source == "nominatim"
     p2 = geocoding.reverse(db_session, 48.8567, 2.3523)      # ~10m away → same cache key
     assert p2.source == "cache" and p2.city == "Paris"
     assert len(nominatim) == 1

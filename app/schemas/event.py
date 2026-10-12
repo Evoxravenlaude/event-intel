@@ -146,7 +146,9 @@ class VenueOut(BaseModel):
     country: str | None = None
     country_code: str | None = None
     address: str | None = None
+    neighbourhood: str | None = None
     geo_source: str | None = None
+    geo_accuracy: str | None = None
     latitude: float | None = None
     longitude: float | None = None
 
@@ -177,6 +179,7 @@ class EventOut(BaseModel):
     venue: VenueOut | None = None
     organizer: OrganizerOut | None = None
     evidence_count: int = 0
+    source_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

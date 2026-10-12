@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.event import Event, Venue
+from app.models.event import Event, EventEvidence, Venue
 from app.schemas.event import EventCreate, EventOut, EventUpdate, PaginatedEventsOut
 from app.services.event_service import create_event, update_event
 from app.services.geo import haversine_km, radius_events_query
@@ -19,7 +19,7 @@ def _event_query():
     return select(Event).options(
         selectinload(Event.venue),
         selectinload(Event.organizer),
-        selectinload(Event.evidence),
+        selectinload(Event.evidence).selectinload(EventEvidence.raw_signal),
     )
 
 

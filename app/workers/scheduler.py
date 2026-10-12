@@ -124,7 +124,25 @@ def run_ingest_job(
         finally:
             db.close()
 
-    from app.services.adapters import GeoQuery
+    from app.services.adapters import ADAPTERS, GeoQuery
+    adapter = ADAPTERS.get(source)
+    if lat is not None and lng is not None and adapter is not None and adapter.supports_geo and not urls:
+        # Geo jobs go through the same path as /discover, so the area is recorded
+        # as freshly scanned and visitors there get an instant answer.
+        from app.services.discovery import scan_area
+        db = SessionLocal()
+        try:
+            rep = scan_area(db, lat, lng, radius_km or settings.discover_default_radius_km, query=query,
+                            force=True, sources=[source])
+            logger.info("Geo job %s @%.4f,%.4f: %d signals, %d new events, %d linked (%s)",
+                        source, lat, lng, rep.signals_created, rep.events_created, rep.signals_linked,
+                        rep.city or "?")
+            return {"status": "completed" if not rep.errors else "partial", "signals": rep.signals_created,
+                    "events_created": rep.events_created, "linked": rep.signals_linked,
+                    "queued": rep.queued_for_review, "errors": rep.errors}
+        finally:
+            db.close()
+
     geo = GeoQuery(lat=lat, lng=lng, radius_km=radius_km or settings.discover_default_radius_km) if lat is not None and lng is not None else None
     db = SessionLocal()
     try:

@@ -3,6 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FAF7F2">
+<meta name="description" content="See what's happening around you — events near you, anywhere in the world.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PULSE">
+<meta name="format-detection" content="telephone=no">
+<meta property="og:title" content="PULSE — what's happening near you">
+<meta property="og:description" content="Live events around you, anywhere in the world.">
+<meta property="og:image" content="/static/icons/icon-512.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.ico" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 <title>PULSE — Global Event Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,800;1,9..144,300;1,9..144,600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -462,6 +475,12 @@ img{display:block;max-width:100%;}
   transition:all 0.2s var(--ease-spring);
 }
 .save-btn:hover,.save-btn.saved{color:var(--accent);transform:scale(1.2);}
+/* invisible 44px hit areas around compact controls (visual size unchanged) */
+.save-btn,.rsvp-pill,.coverage-line button,.seg button{position:relative;}
+.save-btn::after{content:'';position:absolute;inset:-12px;}
+.rsvp-pill::after{content:'';position:absolute;inset:-9px -4px;}
+.coverage-line button::after{content:'';position:absolute;inset:-10px -6px;}
+.seg button::after{content:'';position:absolute;inset:-5px 0;}
 
 /* Empty state */
 .main-empty{display:none;padding:40px 16px;text-align:center;}
@@ -1027,19 +1046,213 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
 .success-actions{display:flex;flex-direction:column;gap:10px;}
 
 /* ═══════════════════════════════════════════════════════
-   RESPONSIVE
+   RESPONSIVE — one layout system for every screen
+   ─────────────────────────────────────────────────────
+   phone   < 768px   single column, bottom tab bar
+   tablet  768–1099  full-width screens, centred 760px column,
+                     2-up event grid, floating tab bar
+   desktop ≥ 1100    left navigation rail, home = feed + live map,
+                     sheets become centred dialogs
+   (The old ≥768px rule centred screens with translateX(-50%),
+   which the screen-entry animation overwrote — screens jumped
+   to the right half and the splash showed through.)
 ═══════════════════════════════════════════════════════ */
+:root{--rail:0px;--col:100%;--vh:1vh;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
+      --safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);}
+@supports (height:100dvh){:root{--vh:1dvh;}}
+/* Safari < 17.2 has no linear() easing — without this every spring transition was dropped */
+@supports not (transition-timing-function:linear(0,1)){:root{--ease-spring:cubic-bezier(.34,1.4,.64,1);}}
+
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}
+button,[onclick],[role=button],[role=tab],.chip,a{touch-action:manipulation;}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;}
+
+.screen{left:var(--rail);right:0;padding-left:var(--safe-l);padding-right:var(--safe-r);}
+.screen.active{min-height:calc(100 * var(--vh));}
+#screen-splash.active{display:flex;}
+#screen-splash{display:none;}
+
+/* top bar — the Feed/Map/Saved pills duplicated the tab bar and pushed the
+   right-hand controls off-screen on every phone */
+.top-nav{padding-top:var(--safe-t);height:calc(var(--nav-h) + var(--safe-t));gap:8px;}
+.top-nav .nav-pills{display:none;}
+.nav-brand{flex-shrink:0;}
+.nav-right{min-width:0;flex-shrink:1;}
+.nav-city-btn{min-height:40px;max-width:46vw;overflow:hidden;}
+.nav-city-btn #nav-city{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.icon-btn{width:40px;height:40px;flex-shrink:0;}
+@media(max-width:359px){.api-badge{display:none;}.nav-brand{font-size:20px;}}
+
+/* touch targets ≥ 40px, inputs ≥ 16px (iOS zooms the page on smaller inputs) */
+.chip{min-height:40px;display:inline-flex;align-items:center;}
+.sheet-close,.back-btn{min-width:40px;min-height:40px;}
+input,select,textarea{font-size:16px !important;}
+.leaflet-touch .leaflet-bar a{width:40px;height:40px;line-height:40px;}
+
+.bottom-nav{height:calc(var(--bottom-h) + var(--safe-b));padding-bottom:var(--safe-b);}
+.bnav-item{min-height:48px;justify-content:center;}
+
+/* hero stats: compact 3-up on phones instead of wrapping to two rows */
+.hero-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.h-stat{min-width:0;padding:10px 12px;}
+
+/* speaker cards / any horizontal scroller must not widen the page */
+.speakers-grid,.related-scroll,.h-scroll,.filters-wrap,.map-filter-bar{max-width:100%;overscroll-behavior-x:contain;}
+.api-url-row{flex-wrap:wrap;}
+.api-url-inp{min-width:0;}
+.stats-row{grid-template-columns:repeat(auto-fit,minmax(88px,1fr));}
+
+/* map screen fills what's left of the viewport */
+#leaflet-map{height:calc(100 * var(--vh) - 74px - var(--bottom-h) - var(--safe-b));min-height:280px;background:var(--surface-2);}
+.map-header{padding-top:calc(12px + var(--safe-t));}
+
+/* sheets: respect the home indicator */
+.sheet-body{padding-bottom:calc(16px + var(--safe-b));max-height:calc(90 * var(--vh));}
+.detail-footer{padding-bottom:calc(12px + var(--safe-b));left:var(--rail);}
+
+/* full-screen flows carry their own back button + footer: the tab bar would cover the RSVP bar */
+body[data-screen="detail"] .bottom-nav,body[data-screen="splash"] .bottom-nav,body[data-screen="success"] .bottom-nav{display:none;}
+@media(min-width:1100px){body[data-screen="detail"] .bottom-nav,body[data-screen="success"] .bottom-nav{display:flex;}}
+
+/* landscape phones: reclaim vertical space */
+@media(max-height:500px) and (orientation:landscape){
+  :root{--bottom-h:58px;--nav-h:52px;}
+  .bnav-item{flex-direction:row;gap:6px;}
+  .hero{padding-top:12px;padding-bottom:8px;}
+  .hero-title{font-size:26px;}
+  #leaflet-map{height:calc(100 * var(--vh) - 64px - var(--bottom-h));}
+}
+
+/* ── tablet ─────────────────────────────────────────── */
 @media(min-width:768px){
-  .screen{max-width:480px;margin:0 auto;left:50%;right:auto;transform:translateX(-50%);}
-  .screen.active{animation:screenIn 0.4s var(--ease-out) both;}
-  .bottom-nav,.detail-footer{max-width:480px;margin:0 auto;left:50%;right:auto;transform:translateX(-50%);}
-  .top-nav{max-width:480px;margin:0 auto;left:50%;right:auto;transform:translateX(-50%);}
+  :root{--col:760px;}
+  body{background:var(--bg);}
   .bg-orbs{display:none;}
-  body{background:var(--surface-3);}
+  .screen > :not(.top-nav):not(.map-header):not(#leaflet-map):not(.detail-footer):not(.map-overlay):not(.map-peek):not(.splash-inner){
+    width:auto;max-width:min(var(--col),calc(100% - 32px));margin-left:auto;margin-right:auto;}
+  .home-main > *{max-width:100%;}
+  .top-nav,.map-header{padding-left:max(16px,calc((100% - var(--col)) / 2));padding-right:max(16px,calc((100% - var(--col)) / 2));}
+  #main-events-list,#web3-list{display:grid !important;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;}
+  .bottom-nav{left:50%;right:auto;width:min(520px,calc(100% - 32px));transform:translateX(-50%);bottom:12px;
+              border:1px solid var(--glass-border);border-radius:24px;box-shadow:var(--shadow-3);height:var(--bottom-h);padding-bottom:0;}
+  #leaflet-map{height:calc(100 * var(--vh) - 74px);}
+  .detail-footer{padding-left:max(16px,calc((100% - var(--col)) / 2));padding-right:max(16px,calc((100% - var(--col)) / 2));}
+  /* sheets become centred dialogs */
+  .sheet-body{left:50%;right:auto;bottom:auto;top:50%;width:min(540px,calc(100% - 48px));border-radius:var(--radius-xl);
+              transform:translate(-50%,-44%);opacity:0;transition:transform .35s var(--ease-out),opacity .25s;max-height:calc(86 * var(--vh));}
+  .sheet.open .sheet-body{transform:translate(-50%,-50%);opacity:1;}
+  .sheet-handle{display:none;}
+  .search-overlay > *{max-width:760px;margin-left:auto;margin-right:auto;}
+}
+
+/* ── desktop ────────────────────────────────────────── */
+@media(min-width:1100px){
+  :root{--rail:92px;--col:1180px;}
+  .bottom-nav{left:0;top:0;bottom:0;right:auto;width:var(--rail);height:auto;transform:none;border-radius:0;
+              flex-direction:column;justify-content:flex-start;gap:6px;padding:20px 8px;border-top:none;border-right:1px solid var(--glass-border);box-shadow:none;}
+  .bottom-nav::before{content:'PULSE';font-family:var(--font-d);font-weight:800;font-size:15px;color:var(--accent);margin-bottom:14px;letter-spacing:.5px;}
+  .bnav-item{flex:0 0 auto;width:100%;padding:12px 4px;}
+  .nav-brand{display:none;}
+  #leaflet-map{height:calc(100 * var(--vh) - 74px);}
+  /* home: feed column + sticky live map */
+  #screen-home.active{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,420px);grid-template-rows:auto 1fr;
+                      column-gap:28px;align-content:start;
+                      padding-left:max(24px,calc((100% - var(--col)) / 2));padding-right:max(24px,calc((100% - var(--col)) / 2));}
+  #screen-home > .top-nav{grid-column:1 / -1;grid-row:1;max-width:none !important;
+                          margin-left:calc(-1 * max(24px,calc((100% - var(--col)) / 2))) !important;
+                          margin-right:calc(-1 * max(24px,calc((100% - var(--col)) / 2))) !important;}
+  #screen-home > .home-main{grid-column:1;grid-row:2;max-width:none !important;width:auto;margin:0 !important;min-width:0;}
+  #screen-home > .home-aside{grid-column:2;grid-row:2;max-width:none !important;width:auto;margin:16px 0 0 !important;}
+  #screen-home > div:last-child{display:none;}
+  .home-aside .home-map-card{display:block;}
+  .sheet-body{width:min(560px,calc(100% - 48px));}
+}
+
+
+/* desktop/tablet aside & home map */
+.home-aside{display:flex;flex-direction:column;gap:16px;}
+.home-map-card{display:none;position:sticky;top:calc(var(--nav-h) + 16px);border-radius:var(--radius-lg);overflow:hidden;
+               border:1.5px solid var(--border);box-shadow:var(--shadow-2);background:var(--surface-2);}
+#home-map{height:min(520px,calc(100 * var(--vh) - 220px));}
+.home-map-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:12px;color:var(--text-3);background:var(--surface-1);}
+.home-map-foot button{font-weight:700;color:var(--accent);font-size:13px;min-height:36px;}
+
+/* location status banner + locating state */
+.loc-banner{display:flex;align-items:center;gap:10px;margin:8px 16px 0;padding:10px 14px;border-radius:var(--radius-md);
+            background:var(--accent-sub);color:var(--text-2);font-size:13px;line-height:1.4;}
+.loc-banner[hidden]{display:none;}
+.loc-banner button{flex-shrink:0;font-weight:700;color:var(--accent);min-height:36px;padding:0 6px;}
+.loc-acc{font-size:11px;color:var(--text-3);font-weight:600;}
+.splash-status{min-height:20px;margin-top:10px;font-size:13px;color:var(--text-3);}
+
+/* sort toggle */
+.main-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:3px;}
+.seg button{min-height:34px;padding:0 12px;border-radius:100px;font-size:12px;font-weight:700;color:var(--text-3);}
+.seg button.on{background:var(--surface-1);color:var(--text-1);box-shadow:var(--shadow-1);}
+.ev-dist{font-weight:700;color:var(--text-2);}
+.ev-approx{font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--pending);}
+
+/* map overlays (work for Google and Leaflet alike) */
+.map-wrap{position:relative;}
+.map-overlay{position:absolute;z-index:500;pointer-events:none;inset:0;}
+.map-fab{pointer-events:auto;position:absolute;right:12px;width:44px;height:44px;border-radius:50%;background:var(--surface-1);
+         border:1px solid var(--border);box-shadow:var(--shadow-2);font-size:18px;display:flex;align-items:center;justify-content:center;}
+.map-fab.locate{bottom:calc(16px + var(--peek-h,0px));}
+.map-search-here{pointer-events:auto;position:absolute;top:12px;left:50%;transform:translateX(-50%);padding:10px 18px;border-radius:100px;
+                 background:var(--text-1);color:#fff;font-weight:700;font-size:13px;box-shadow:var(--shadow-3);min-height:40px;white-space:nowrap;}
+.map-search-here[hidden]{display:none;}
+.map-peek{position:absolute;left:12px;right:12px;bottom:12px;z-index:600;background:var(--surface-1);border:1.5px solid var(--border);
+          border-radius:var(--radius-lg);box-shadow:var(--shadow-3);padding:14px 16px;display:flex;gap:12px;align-items:center;}
+.map-peek[hidden]{display:none;}
+.map-peek-body{flex:1;min-width:0;}
+.map-peek-title{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.map-peek-meta{font-size:12px;color:var(--text-3);margin-top:2px;}
+.map-peek .pop-btn{flex:0 0 auto;width:auto !important;min-height:44px;padding:0 18px;margin:0;}
+.map-peek{z-index:1100;}
+.map-peek .pop-tag{margin-bottom:2px;}
+.map-overlay{z-index:1000;}
+.map-fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;padding:24px;text-align:center;color:var(--text-3);font-size:14px;}
+.ei-pin{width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.ei-pin.approx{opacity:.65;border-style:dashed;}
+.ei-pin.sel{transform:scale(1.5);}
+.ei-cluster{display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(28,19,10,.9);color:#fff;
+            font:800 13px/1 var(--font-s);border:3px solid #F4700A;box-shadow:0 3px 12px rgba(0,0,0,.3);cursor:pointer;}
+.ei-user{width:16px;height:16px;border-radius:50%;background:#0EA5E9;border:3px solid #fff;box-shadow:0 0 0 6px rgba(14,165,233,.25);}
+
+/* detail: getting there */
+.where-card{border:1.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface-1);}
+#detail-map{height:180px;background:var(--surface-2);}
+.where-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.where-addr{font-size:14px;color:var(--text-2);line-height:1.45;}
+.where-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.where-actions a{flex:1 1 140px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--radius-md);
+                 font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid var(--border);color:var(--text-1);background:var(--surface-1);}
+.where-actions a.primary{background:var(--text-1);border-color:var(--text-1);color:#fff;}
+.source-link{font-size:13px;color:var(--accent);font-weight:600;text-decoration:none;}
+
+/* city picker suggestions */
+.sugg-kind{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text-3);margin-left:auto;padding-left:8px;}
+.sugg-sec{font-size:12px;color:var(--text-3);}
+.use-loc-row{display:flex;align-items:center;gap:10px;margin:0 16px 8px;padding:14px;border-radius:var(--radius-md);background:var(--sky-sub);
+             color:var(--text-1);font-weight:700;font-size:14px;min-height:48px;width:calc(100% - 32px);text-align:left;}
+
+/* small-target fixes from the device audit */
+.coverage-line button{min-height:32px;padding:0 8px;margin:-8px 0;}
+.radius-row input[type=range]{height:32px;}
+.h-section-more{min-height:40px;display:inline-flex;align-items:center;padding:0 4px;}
+.source-link{display:inline-flex;align-items:center;min-height:40px;}
+.form-row{min-width:0;}
+.form-inp-sm,.form-inp,textarea.form-inp-sm{width:100%;max-width:100%;min-width:0;box-sizing:border-box;}
+.leaflet-control-attribution{font-size:10px;}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}
 }
 </style>
 </head>
-<body>
+<body data-screen="splash">
 <div class="bg-orbs" aria-hidden="true">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -1054,14 +1267,15 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
     <div class="splash-tagline">Global event intelligence, live.</div>
     <div class="splash-pulse" aria-hidden="true">⚡</div>
     <div class="splash-actions">
-      <button class="btn-primary" onclick="requestLocation()">📍 Find events near me</button>
+      <button class="btn-primary" id="splash-locate" onclick="requestLocation()">📍 Find events near me</button>
+      <div class="splash-status" id="splash-status" aria-live="polite"></div>
       <button class="btn-secondary" onclick="goTo('city')">Enter city manually</button>
       <div class="splash-divider">or sign in</div>
       <div class="auth-social-row">
         <button class="btn-social" onclick="doAuth('apple')">🍎 Continue with Apple</button>
         <button class="btn-social" onclick="doAuth('google')">G&nbsp;&nbsp;Continue with Google</button>
       </div>
-      <p class="splash-note">Your location stays on your device. We never store or share it.</p>
+      <p class="splash-note">Your location is only used to find events near you. It's never stored with your identity.</p>
     </div>
   </div>
 </div>
@@ -1071,13 +1285,14 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
   <div class="city-screen-header">
     <button class="back-btn" onclick="goBack()" aria-label="Go back" style="margin-bottom:12px;">←</button>
     <div class="city-screen-title">Where are you?</div>
-    <div class="city-screen-sub">Search any city worldwide to discover events</div>
+    <div class="city-screen-sub">Search any city, neighbourhood or venue worldwide</div>
     <div class="city-search-wrap">
       <span class="city-search-ico" aria-hidden="true">🔍</span>
-      <input class="city-search-inp" type="search" placeholder="Search cities worldwide…"
+      <input class="city-search-inp" type="search" placeholder="City, area or venue…" enterkeyhint="search"
         oninput="filterCities(this.value)" aria-label="Search for a city" autocomplete="off">
     </div>
   </div>
+  <button class="use-loc-row" onclick="requestLocation(true)">◎ Use my current location</button>
   <div id="city-results" class="city-results" role="listbox" aria-label="City search results"></div>
   <div class="city-section">
     <div class="city-section-label">Popular cities</div>
@@ -1110,9 +1325,16 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
         <span id="nav-city">Global</span>
       </button>
       <div class="api-badge" id="api-badge" aria-live="polite">DEMO</div>
+      <button class="icon-btn" onclick="requestLocation(true)" aria-label="Use my current location" title="Use my current location">📍</button>
       <button class="icon-btn" onclick="openSearch()" aria-label="Search events">🔍</button>
     </div>
   </nav>
+
+  <div class="home-main">
+  <div class="loc-banner" id="loc-banner" role="status" hidden>
+    <span id="loc-banner-text"></span>
+    <button id="loc-banner-btn" onclick="requestLocation(true)">Use precise location</button>
+  </div>
 
   <!-- Hero -->
   <div class="hero">
@@ -1145,7 +1367,13 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
 
   <!-- Main list -->
   <div class="main-section">
-    <div class="main-section-title">All Events</div>
+    <div class="main-section-head">
+      <div class="main-section-title">All Events</div>
+      <div class="seg" role="group" aria-label="Sort events">
+        <button id="sort-time" class="on" onclick="setSort('time')" aria-pressed="true">Soonest</button>
+        <button id="sort-distance" onclick="setSort('distance')" aria-pressed="false">Nearest</button>
+      </div>
+    </div>
     <div id="main-events-list" role="list" aria-label="Events list"></div>
     <div id="main-empty" class="main-empty" role="status">
       <div class="empty-ico">🔍</div>
@@ -1163,6 +1391,12 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
     <div id="web3-list" style="padding:0 16px;display:flex;flex-direction:column;gap:8px;" role="list"></div>
   </div>
 
+  </div><!-- /home-main -->
+  <aside class="home-aside" aria-label="Map and live signals">
+  <div class="home-map-card">
+    <div class="map-wrap"><div id="home-map" role="application" aria-label="Map of events near you"></div></div>
+    <div class="home-map-foot"><span id="home-map-caption">Events near you</span><button onclick="goTo('map');setBnavActive(document.querySelector('.bnav-item:nth-child(2)'))">Open map →</button></div>
+  </div>
   <!-- Live signals -->
   <div class="signals-panel">
     <div class="signals-header">
@@ -1171,7 +1405,8 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
     </div>
     <div id="sig-feed" role="feed" aria-label="Live signals"></div>
   </div>
-  <div style="height:16px;"></div>
+  </aside>
+  <div style="height:calc(24px + var(--bottom-h));"></div>
 </div>
 
 <!-- ═══ MAP ══════════════════════════════════════════════════════ -->
@@ -1186,14 +1421,25 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
       <div class="chip" data-filter="web3" onclick="mapFilter('web3')" role="checkbox" aria-checked="false">Web3</div>
       <div class="chip" data-filter="nightlife" onclick="mapFilter('nightlife')" role="checkbox" aria-checked="false">Nightlife</div>
       <div class="chip" data-filter="food" onclick="mapFilter('food')" role="checkbox" aria-checked="false">Food</div>
+      <div class="chip" data-filter="community" onclick="mapFilter('community')" role="checkbox" aria-checked="false">Community</div>
+      <div class="chip" data-filter="education" onclick="mapFilter('education')" role="checkbox" aria-checked="false">Learning</div>
+      <div class="chip" data-filter="wellness" onclick="mapFilter('wellness')" role="checkbox" aria-checked="false">Wellness</div>
     </div>
   </div>
-  <div id="leaflet-map" role="application" aria-label="Event map"></div>
-  <div id="map-popover" class="map-popover" style="display:none;" role="dialog" aria-label="Event preview">
-    <div id="pop-tag" class="pop-tag"></div>
-    <div id="pop-title" class="pop-title"></div>
-    <div id="pop-meta" class="pop-meta"></div>
-    <button class="pop-btn" onclick="viewEventFromMap()">View Event →</button>
+  <div class="map-wrap">
+    <div id="leaflet-map" role="application" aria-label="Event map"></div>
+    <div class="map-overlay">
+      <button class="map-search-here" id="map-search-here" onclick="searchThisArea()" hidden>⟳ Search this area</button>
+      <button class="map-fab locate" onclick="requestLocation(true)" aria-label="Centre on my location">◎</button>
+    </div>
+    <div id="map-popover" class="map-peek" role="dialog" aria-label="Event preview" hidden>
+      <div class="map-peek-body">
+        <div id="pop-tag" class="pop-tag"></div>
+        <div id="pop-title" class="map-peek-title"></div>
+        <div id="pop-meta" class="map-peek-meta"></div>
+      </div>
+      <button class="pop-btn" onclick="viewEventFromMap()">View →</button>
+    </div>
   </div>
 </div>
 
@@ -1317,6 +1563,18 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
     🔒 This event requires token verification to RSVP.
   </div>
 
+  <div class="detail-section" id="detail-where-section">
+    <div class="detail-section-title">Getting there</div>
+    <div class="where-card">
+      <div id="detail-map" role="img" aria-label="Map of the venue"></div>
+      <div class="where-body">
+        <div class="where-addr" id="detail-addr">—</div>
+        <div class="where-actions" id="detail-directions"></div>
+        <a class="source-link" id="detail-source" href="#" target="_blank" rel="noopener noreferrer" hidden>View on the original listing ↗</a>
+      </div>
+    </div>
+  </div>
+
   <div class="detail-section">
     <div class="detail-section-title">Organiser</div>
     <div class="org-card">
@@ -1336,13 +1594,13 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
     <button id="expand-btn" onclick="expandDesc()" aria-expanded="false">Read more ↓</button>
   </div>
 
-  <div class="detail-section">
+  <div class="detail-section" id="speakers-section">
     <div class="detail-section-title">Speakers</div>
     <div id="speakers-grid" class="speakers-grid" role="list"></div>
   </div>
 
-  <div style="padding:20px 0 8px;">
-    <div class="h-section-header"><div class="h-section-title">Related Events</div></div>
+  <div style="padding:20px 0 calc(96px + var(--safe-b));" id="related-section">
+    <div class="h-section-header"><div class="h-section-title">Also nearby</div></div>
     <div id="related-scroll" class="related-scroll" role="list" aria-label="Related events"></div>
   </div>
 
@@ -1526,7 +1784,6 @@ textarea.form-inp-sm{resize:vertical;font-family:inherit;line-height:1.4;}
   <div id="search-results" class="search-results" role="listbox" aria-label="Search results"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════
    SAFETY — every string that came from the API or a feed is escaped before
@@ -1538,12 +1795,32 @@ function esc(v) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   COMPAT — Safari < 16 has no AbortSignal.timeout (every API call threw),
+   Safari < 15.4 no crypto.randomUUID.
+═══════════════════════════════════════════════════════ */
+if (typeof AbortSignal !== 'undefined' && !AbortSignal.timeout) {
+  AbortSignal.timeout = ms => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
+}
+function uuid() {
+  try { if (crypto.randomUUID) return crypto.randomUUID(); } catch {}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&3|8)).toString(16); });
+}
+function lsGet(k){ try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k,v){ try { localStorage.setItem(k,v); } catch {} }
+const IS_APPLE = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IS_ANDROID = /Android/.test(navigator.userAgent);
+
+/* ═══════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════ */
 let API_BASE = null;
 let STATS = null;
 let REVIEW_ITEMS = [];
-let LOCATION = null;        // {lat, lng, city, country, country_code, label, source:'gps'|'city'|'search'}
+let LOCATION = null;        // {lat, lng, accuracy(m), city, country, label, source:'gps'|'ip'|'search'|'map'|'city'|'saved'}
+let CONFIG = null;          // /config — map provider, browser key, limits
+let IS_ADMIN = false;       // presented a valid API key (or auth disabled)
+let SORT_MODE = lsGet('ei_sort') || 'time';
 let RADIUS_KM = 25;
 let COVERAGE = null;
 let CATEGORIES = ['web3','tech','business','culture','sports','food','nightlife','wellness','community','education'];
@@ -1647,12 +1924,15 @@ function goTo(screen) {
   if (prev) _prevScreen = prev.id.replace('screen-','');
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById('screen-'+screen);
-  if (el) { el.classList.add('active'); announce(`Navigated to ${screen}`); }
+  if (el) { el.classList.add('active'); el.scrollTop = 0; announce(`Navigated to ${screen}`); }
+  document.body.dataset.screen = screen;
   if (screen === 'map') initMap();
+  if (screen === 'home') ensureHomeMap();
   if (screen === 'saved') renderItinerary();
 }
 
 function goBack() {
+  if (location.search.includes('event=')) history.replaceState(null, '', location.pathname);
   goTo(_prevScreen || 'home');
 }
 
@@ -1688,42 +1968,124 @@ function nearestKnownCity(lat, lng) {
   return {...nearest, approxKm: minDist*111};
 }
 
-function requestLocation() {
-  if (!navigator.geolocation) { goTo('city'); return; }
-  announce('Locating you…');
-  navigator.geolocation.getCurrentPosition(
-    async pos => {
-      const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      await setLocation({lat, lng, source:'gps'});
-    },
-    () => { goTo('city'); },
-    {enableHighAccuracy:false, timeout:10000, maximumAge:300000}
-  );
+/* Best GPS fix within a time budget: watchPosition with high accuracy, keep
+   the most accurate reading, stop early once it's good enough. The old code
+   asked for a low-accuracy fix and accepted a 5-minute-old cached one. */
+function getBestPosition({timeout = 12000, good = 60, onProgress} = {}) {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) return reject({code: 0, message: 'unsupported'});
+    if (window.isSecureContext === false) return reject({code: 0, message: 'insecure'});
+    let best = null, done = false, id = null, lastErr = null;
+    const finish = err => {
+      if (done) return; done = true;
+      if (id !== null) navigator.geolocation.clearWatch(id);
+      clearTimeout(timer);
+      best ? resolve(best) : reject(err || lastErr || {code: 3, message: 'timeout'});
+    };
+    const timer = setTimeout(() => finish(), timeout);
+    id = navigator.geolocation.watchPosition(pos => {
+      if (!best || pos.coords.accuracy < best.coords.accuracy) { best = pos; onProgress && onProgress(pos.coords.accuracy); }
+      if (pos.coords.accuracy <= good) finish();
+    }, err => { lastErr = err; if (err.code === 1) finish(err); }, {enableHighAccuracy: true, maximumAge: 0, timeout});
+  });
+}
+
+function getCoarsePosition() {
+  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject,
+    {enableHighAccuracy: false, maximumAge: 600000, timeout: 8000}));
+}
+
+function fmtAccuracy(m) {
+  if (m == null) return '';
+  if (m <= 1000) return `±${Math.max(5, Math.round(m / 5) * 5)} m`;
+  return `±${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
+}
+
+function setLocStatus(msg) {
+  const s = document.getElementById('splash-status'); if (s) s.textContent = msg || '';
+  if (msg) announce(msg);
+}
+
+function locationHelp(reason) {
+  if (reason === 'insecure') return 'Location needs a secure (https) connection.';
+  if (reason === 'unsupported') return 'This browser can’t share your location.';
+  if (reason === 'denied') {
+    if (IS_IOS) return 'Location is off for this site. On iPhone: Settings → Privacy & Security → Location Services → Safari Websites → While Using.';
+    if (IS_ANDROID) return 'Location is blocked for this site. Tap the icon left of the address → Permissions → Location → Allow.';
+    return 'Location is blocked for this site. Click the location icon in the address bar and allow it.';
+  }
+  return 'Couldn’t get a GPS fix.';
+}
+
+let _locating = false;
+async function requestLocation(manual = false) {
+  if (_locating) return;
+  _locating = true;
+  const btn = document.getElementById('splash-locate'); if (btn) btn.disabled = true;
+  setLocStatus('Finding your location…');
+  try {
+    let pos;
+    try {
+      pos = await getBestPosition({onProgress: acc => setLocStatus(`Finding your location… ${fmtAccuracy(acc)}`)});
+    } catch (err) {
+      if (err && err.code === 1) throw err;          // denied — don't retry
+      pos = await getCoarsePosition();               // no high-accuracy fix in time — accept a coarse one
+    }
+    const c = pos.coords;
+    setLocStatus('');
+    await setLocation({lat: c.latitude, lng: c.longitude, accuracy: Math.round(c.accuracy), source: 'gps'});
+  } catch (err) {
+    const reason = !err ? 'unavailable' : err.code === 1 ? 'denied' : err.code === 0 ? (err.message || 'unsupported') : 'unavailable';
+    let ipLoc = null;
+    if (API_BASE) { try { ipLoc = await api('/geo/ip', {signal: AbortSignal.timeout(6000)}); } catch {} }
+    if (ipLoc) {
+      setLocStatus('');
+      await setLocation({lat: ipLoc.latitude, lng: ipLoc.longitude, city: ipLoc.city, country: ipLoc.country,
+                         label: ipLoc.label || ipLoc.city, accuracy: 25000, source: 'ip', why: reason});
+    } else {
+      setLocStatus(locationHelp(reason));
+      if (manual || document.getElementById('screen-splash').classList.contains('active')) goTo('city');
+    }
+  } finally {
+    _locating = false; if (btn) btn.disabled = false;
+  }
 }
 
 /* The single entry point for "where am I looking". Resolves a label for the
    point (API reverse-geocode when live, nearest known city otherwise), then
    loads the feed for it. */
-async function setLocation(loc) {
+async function setLocation(loc, {stay = false} = {}) {
   LOCATION = {...loc};
-  if (API_BASE && !loc.city) {
-    try {
-      const p = await api(`/geocode/reverse?lat=${loc.lat}&lng=${loc.lng}`);
-      LOCATION.city = p.city; LOCATION.country = p.country; LOCATION.country_code = p.country_code;
-    } catch {}
-  }
-  if (!LOCATION.city) {
+  if (!LOCATION.city && !API_BASE) {
     const n = nearestKnownCity(loc.lat, loc.lng);
     LOCATION.city = n.approxKm < 80 ? n.name : `${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)}`;
   }
-  LOCATION.label = LOCATION.source==='gps' ? `Near you · ${LOCATION.city}` : LOCATION.city;
-  activeCity = LOCATION.city;
-  document.getElementById('nav-city').textContent = LOCATION.city;
-  document.getElementById('hero-city-label').textContent = LOCATION.label;
-  const il=document.getElementById('ingest-city-label'); if (il) il.textContent = LOCATION.city;
-  goTo('home');
-  if (mapInstance) mapInstance.setView([LOCATION.lat, LOCATION.lng], 11);
+  LOCATION.label = LOCATION.label || LOCATION.city || 'Locating…';
+  activeCity = LOCATION.city || activeCity;
+  if (loc.source !== 'saved') lsSet('ei_loc', JSON.stringify({...LOCATION, ts: Date.now()}));
+  updateLocationUI();
+  if (!stay) { goTo('home'); setBnavActive(document.querySelector('.bnav-item:nth-child(1)')); }
+  updateMapsForLocation(true);
   if (API_BASE) await loadLiveData(); else renderFeed(MOCK_EVENTS);
+}
+
+function updateLocationUI() {
+  if (!LOCATION) return;
+  const short = LOCATION.city || LOCATION.label || 'Nearby';
+  document.getElementById('nav-city').textContent = short;
+  const prefix = LOCATION.source === 'gps' ? 'Near you · ' : LOCATION.source === 'map' ? 'Map area · ' : '';
+  document.getElementById('hero-city-label').textContent = prefix + (LOCATION.label || short);
+  const il = document.getElementById('ingest-city-label'); if (il) il.textContent = short;
+  const banner = document.getElementById('loc-banner'), text = document.getElementById('loc-banner-text');
+  const approx = LOCATION.source === 'ip' || (LOCATION.source === 'gps' && LOCATION.accuracy > 3000);
+  if (banner && text) {
+    if (approx) {
+      text.textContent = LOCATION.source === 'ip'
+        ? `Showing events around ${short} — your approximate area. ${LOCATION.why === 'denied' ? 'Location access is off.' : ''}`
+        : `Your device gave an approximate fix (${fmtAccuracy(LOCATION.accuracy)}). Results may be off by a few km.`;
+      banner.hidden = false;
+    } else banner.hidden = true;
+  }
 }
 
 function doAuth(method) {
@@ -1754,44 +2116,71 @@ function renderCityChips() {
 }
 
 let _citySearchTimer = null;
+let _placeSession = uuid();
+function suggestionRow(sg) {
+  const kind = sg.kind ? `<span class="sugg-kind">${esc(sg.kind)}</span>` : '';
+  const icon = sg.kind === 'venue' ? '📍' : sg.kind === 'area' ? '🏘' : sg.kind === 'address' ? '🏠' : '🌍';
+  return `<div class="search-result-item" role="option" tabindex="0" data-sugg='${esc(JSON.stringify(sg))}'
+            onclick="pickSuggestion(this)" onkeydown="if(event.key==='Enter')pickSuggestion(this)">
+      <span class="result-icon" aria-hidden="true">${icon}</span>
+      <span><div>${esc(sg.primary)}</div>${sg.secondary?`<div class="sugg-sec">${esc(sg.secondary)}</div>`:''}</span>${kind}
+    </div>`;
+}
+
 function filterCities(q) {
   const res = document.getElementById('city-results');
-  if (!q.trim()) { res.innerHTML=''; return; }
-  const matches = ALL_CITIES.filter(c => c.toLowerCase().includes(q.toLowerCase())).slice(0,12);
-  const local = matches.map(c =>
-    `<div class="search-result-item" onclick="selectCity(${JSON.stringify(c).replace(/"/g,'&quot;')})" role="option" tabindex="0">
-      <span class="result-icon" aria-hidden="true">📍</span>${esc(c)}
-    </div>`).join('');
-  res.innerHTML = local || (API_BASE ? '' : '<div style="padding:16px;color:var(--text-3);font-size:14px;">No matches found.</div>');
-  if (!API_BASE || q.trim().length < 3) return;
-  // Anything not in the local list: ask the geocoder (debounced) — works for any place on Earth
+  q = (q || '').trim();
+  if (!q) { res.innerHTML = ''; return; }
+  if (!API_BASE) {
+    const matches = ALL_CITIES.filter(c => c.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
+    res.innerHTML = matches.map(c => suggestionRow({id: 'local:' + c, primary: c, kind: 'city'})).join('')
+      || '<div style="padding:16px;color:var(--text-3);font-size:14px;">No matches found.</div>';
+    return;
+  }
   clearTimeout(_citySearchTimer);
   _citySearchTimer = setTimeout(async () => {
+    const bias = LOCATION ? `&lat=${LOCATION.lat}&lng=${LOCATION.lng}` : '';
     try {
-      const hits = await api(`/geocode?q=${encodeURIComponent(q.trim())}`);
-      if (document.querySelector('.city-search-inp').value.trim() !== q.trim()) return;
-      if (!hits.length) { if (!local) res.innerHTML='<div style="padding:16px;color:var(--text-3);font-size:14px;">No place found for that.</div>'; return; }
-      const h = hits[0];
-      if (matches.some(c => c.toLowerCase() === (h.city||'').toLowerCase())) return;
-      res.innerHTML = `<div class="search-result-item" onclick='selectPlace(${JSON.stringify(h).replace(/'/g,"&#39;")})' role="option" tabindex="0">
-          <span class="result-icon" aria-hidden="true">🌍</span>${esc(h.city || q)}<span style="color:var(--text-3);font-size:12px;margin-left:6px">${esc(h.country||'')}</span>
-        </div>` + res.innerHTML;
-    } catch {}
-  }, 350);
+      const hits = await api(`/places/autocomplete?q=${encodeURIComponent(q)}${bias}&session=${_placeSession}`);
+      if (document.querySelector('.city-search-inp').value.trim() !== q) return;
+      res.innerHTML = hits.length ? hits.map(suggestionRow).join('')
+        : '<div style="padding:16px;color:var(--text-3);font-size:14px;">No place found — try a city name.</div>';
+    } catch { res.innerHTML = '<div style="padding:16px;color:var(--text-3);font-size:14px;">Search is unavailable right now.</div>'; }
+  }, 220);
+}
+
+async function pickSuggestion(el) {
+  const sg = JSON.parse(el.dataset.sugg);
+  if (sg.id.startsWith('local:')) return selectCity(sg.primary);
+  let place = null;
+  if (sg.latitude != null) {
+    place = {latitude: sg.latitude, longitude: sg.longitude, city: sg.kind === 'city' ? sg.primary : null,
+             label: sg.secondary && sg.kind !== 'city' ? `${sg.primary}, ${sg.secondary.split(',')[0]}` : sg.primary};
+  } else {
+    try { place = await api(`/places/resolve?id=${encodeURIComponent(sg.id)}&session=${_placeSession}`); } catch {}
+  }
+  _placeSession = uuid();
+  document.querySelector('.city-search-inp').value = '';
+  document.getElementById('city-results').innerHTML = '';
+  if (!place) { announce('Could not open that place'); return; }
+  selectPlace(place);
 }
 
 function selectPlace(p) {
-  setLocation({lat:p.latitude, lng:p.longitude, city:p.city, country:p.country, country_code:p.country_code, source:'search'});
+  setLocation({lat: p.latitude, lng: p.longitude, city: p.city, country: p.country,
+               label: p.label || p.city, accuracy: p.accuracy === 'city' ? 5000 : 50, source: 'search'});
 }
 
 function selectCity(city) {
   const known = CITIES_DATA.find(c => c.name === city);
-  if (known) { setLocation({lat:known.lat, lng:known.lng, city:known.name, source:'city'}); return; }
+  if (known) { setLocation({lat: known.lat, lng: known.lng, city: known.name, label: known.name, accuracy: 5000, source: 'city'}); return; }
   if (API_BASE) {
-    api(`/geocode?q=${encodeURIComponent(city)}`).then(hits => {
-      if (hits.length) selectPlace(hits[0]);
-      else { activeCity = city; document.getElementById('nav-city').textContent = city; goTo('home'); loadLiveData(); }
-    }).catch(() => goTo('home'));
+    api(`/places/autocomplete?q=${encodeURIComponent(city)}`).then(async hits => {
+      if (!hits.length) return;
+      const h = hits[0];
+      if (h.latitude != null) selectPlace({latitude: h.latitude, longitude: h.longitude, city: h.primary, label: h.primary, accuracy: 'city'});
+      else { const p = await api(`/places/resolve?id=${encodeURIComponent(h.id)}`); selectPlace(p); }
+    }).catch(() => {});
     return;
   }
   activeCity = city;
@@ -1828,7 +2217,7 @@ function makeEventCard(ev, idx) {
   <article class="ev-card ${c>=.75?'confirmed':''} dl${Math.min(idx+1,8)}"
     onclick="openDetail(${ev.id})"
     role="listitem"
-    aria-label="${esc(ev.title)}, ${esc(city)}, ${d.full}, confidence ${pct}%">
+    aria-label="${esc(ev.title)}, ${esc(city)}, ${d.full}${ev.distance_km != null ? ', ' + fmtDistance(ev.distance_km) + ' away' : ''}, confidence ${pct}%">
     <div class="ev-date" aria-hidden="true">
       <div class="ev-mon">${d.mon}</div>
       <div class="ev-day">${d.day}</div>
@@ -1842,7 +2231,9 @@ function makeEventCard(ev, idx) {
       </div>
       <div class="ev-title">${esc(ev.title)}</div>
       <div class="ev-meta">
-        <span>${esc(city)}</span>
+        ${ev.distance_km != null ? `<span class="ev-dist">${fmtDistance(ev.distance_km)}</span><span class="ev-meta-sep" aria-hidden="true">·</span>` : ''}
+        <span>${esc(ev.place_label || city)}</span>
+        ${ev.geo_accuracy === 'city' || ev.geo_accuracy === 'region' ? '<span class="ev-approx" title="Exact venue not published">approx.</span>' : ''}
         <span class="ev-meta-sep" aria-hidden="true">·</span>
         <span>${d.full}</span>
         ${ev.evidence>0?`<span class="ev-meta-sep" aria-hidden="true">·</span><span>${ev.evidence} signal${ev.evidence!==1?'s':''}</span>`:''}
@@ -1889,7 +2280,13 @@ function makeHCard(ev) {
 }
 
 function renderFeed(events) {
+  if (LOCATION) events = events.map(e => (e.distance_km == null && Number.isFinite(e.lat) && Number.isFinite(e.lng))
+    ? {...e, distance_km: Math.round(haversine(LOCATION.lat, LOCATION.lng, e.lat, e.lng) * 100) / 100} : e);
+  if (SORT_MODE === 'distance') events = [...events].sort((a, b) => (a.distance_km ?? 1e9) - (b.distance_km ?? 1e9));
   currentEvents = events;
+  renderMapPins(events);
+  const cap = document.getElementById('home-map-caption');
+  if (cap && LOCATION) cap.textContent = `${events.length} event${events.length === 1 ? '' : 's'} within ${RADIUS_KM} km`;
   const filtered = events.filter(e => {
     if (activeFilter==='all') return true;
     if (activeFilter==='upcoming') return e.status==='upcoming';
@@ -1990,11 +2387,12 @@ function openDetail(id) {
   document.getElementById('detail-title').textContent = ev.title;
   document.getElementById('detail-back-title').textContent = ev.title;
   document.getElementById('detail-date').textContent = d.full;
-  document.getElementById('detail-venue').textContent = (ev.venue?.name||city)+', '+city;
+  document.getElementById('detail-venue').textContent = ev.venue?.name && ev.venue.name !== city ? `${ev.venue.name}, ${ev.place_label && ev.place_label !== ev.venue.name ? ev.place_label.split(', ').pop() : city}` : (ev.place_label || city);
+  history.replaceState(null, '', `?event=${ev.id}`);
   document.getElementById('detail-conf').textContent = `${Math.round(c*100)}% (${c>=.75?'confirmed':c>=.5?'uncertain':'low'})`;
   document.getElementById('footer-event-title').textContent = ev.title;
   document.getElementById('success-event-title').textContent = ev.title;
-  document.getElementById('success-event-date').textContent = `${city} · ${d.mon} ${d.day}, 2026`;
+  document.getElementById('success-event-date').textContent = `${city} · ${d.mon} ${d.day}`;
   document.getElementById('rsvp-sheet-title').textContent = ev.title;
   document.getElementById('rsvp-sheet-sub').textContent = `${city} · ${ev.category}`;
   document.getElementById('rsvp-date-display').textContent = d.full;
@@ -2020,25 +2418,89 @@ function openDetail(id) {
     ${ev.status==='upcoming'?'<span class="tag tag-confirmed">upcoming</span>':''}
     ${ev.token_gated?'<span class="tag tag-token">🔒 Token gated</span>':''}`;
   document.getElementById('token-banner').style.display = ev.token_gated?'flex':'none';
-  document.getElementById('speakers-grid').innerHTML = SPEAKERS_MOCK.map(s => `
+  renderWhere(ev);
+  const live = !!API_BASE;
+  document.getElementById('speakers-section').style.display = live ? 'none' : '';
+  const descEl = document.getElementById('detail-desc');
+  descEl.textContent = live ? (ev.description || 'No description was published for this event.') : descEl.textContent;
+  document.getElementById('expand-btn').style.display = (descEl.textContent.length > 220) ? '' : 'none';
+  document.getElementById('speakers-grid').innerHTML = live ? '' : SPEAKERS_MOCK.map(s => `
     <div class="speaker-card">
       <div class="speaker-avatar" aria-hidden="true">${s.emoji}</div>
       <div class="speaker-name">${s.name}</div>
       <div class="speaker-role">${s.role}</div>
     </div>`).join('');
-  const related = MOCK_EVENTS.filter(e=>e.id!==id&&e.category===ev.category).slice(0,4);
+  const pool = live ? currentEvents : MOCK_EVENTS;
+  const related = pool.filter(e => e.id !== id)
+    .map(e => ({e, d: (Number.isFinite(ev.lat) && Number.isFinite(e.lat)) ? haversine(ev.lat, ev.lng, e.lat, e.lng) : 1e9}))
+    .sort((a, b) => (a.e.category === ev.category ? 0 : 1) - (b.e.category === ev.category ? 0 : 1) || a.d - b.d)
+    .slice(0, 6).map(x => x.e);
+  document.getElementById('related-section').style.display = related.length ? '' : 'none';
   document.getElementById('related-scroll').innerHTML = related.map(r => {
     const rd=fmtDate(r.start_time);
     return `<div class="rel-card" onclick="openDetail(${r.id})" tabindex="0" aria-label="${esc(r.title)}">
-      <div class="rel-tag">${r.category}</div>
+      <div class="rel-tag">${esc(r.category)}</div>
       <div class="rel-title">${esc(r.title)}</div>
-      <div class="rel-date">${r.venue?.city||r.city} · ${rd.mon} ${rd.day}</div>
+      <div class="rel-date">${esc(r.place_label||r.venue?.city||r.city)} · ${rd.mon} ${rd.day}</div>
     </div>`;
   }).join('');
   const desc = document.getElementById('detail-desc');
   desc.classList.add('collapsed');
   document.getElementById('expand-btn').textContent='Read more ↓';
   goTo('detail');
+}
+
+/* ── Getting there: Apple Maps on Apple devices, Google Maps elsewhere ── */
+function directionLinks(ev) {
+  const hasPt = Number.isFinite(ev.lat) && Number.isFinite(ev.lng);
+  const v = ev.venue || {};
+  const q = [v.name, v.address || ev.place_label || ev.city].filter(Boolean).join(', ');
+  if (!hasPt && !q) return [];
+  const dest = hasPt ? `${ev.lat},${ev.lng}` : encodeURIComponent(q);
+  const google = {label: 'Google Maps', href: hasPt
+      ? `https://www.google.com/maps/dir/?api=1&destination=${dest}`
+      : `https://www.google.com/maps/search/?api=1&query=${dest}`};
+  const apple = {label: 'Apple Maps', href: hasPt
+      ? `https://maps.apple.com/?daddr=${dest}&q=${encodeURIComponent(v.name || ev.title)}`
+      : `https://maps.apple.com/?q=${dest}`};
+  const primary = IS_APPLE ? apple : google, secondary = IS_APPLE ? google : apple;
+  return [{...primary, label: `Directions · ${primary.label}`, primary: true}, secondary];
+}
+
+let detailMapPending = null;
+function renderWhere(ev) {
+  const sec = document.getElementById('detail-where-section');
+  const v = ev.venue || {};
+  const hasPt = Number.isFinite(ev.lat) && Number.isFinite(ev.lng);
+  if (!hasPt && !v.address && !v.name) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const approx = ev.geo_accuracy === 'city' || ev.geo_accuracy === 'region';
+  const parts = [];
+  if (v.name && v.name !== v.city) parts.push(`<b>${esc(v.name)}</b>`);
+  parts.push(esc(v.address || [v.neighbourhood, v.city, v.country].filter(Boolean).join(', ') || ev.city || ''));
+  if (ev.distance_km != null) parts.push(`<span class="ev-dist">${fmtDistance(ev.distance_km)} away</span>`);
+  if (approx) parts.push('<span class="ev-approx">Exact venue not published — pin shows the area</span>');
+  document.getElementById('detail-addr').innerHTML = parts.filter(Boolean).join('<br>');
+  document.getElementById('detail-directions').innerHTML = directionLinks(ev).map(l =>
+    `<a class="${l.primary ? 'primary' : ''}" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a>`).join('');
+  const src = document.getElementById('detail-source');
+  if (ev.source_url) { src.href = ev.source_url; src.hidden = false; } else src.hidden = true;
+  const mapEl = document.getElementById('detail-map');
+  mapEl.style.display = hasPt ? '' : 'none';
+  if (!hasPt) return;
+  detailMapPending = ev;
+  setTimeout(async () => {
+    if (detailMapPending !== ev) return;
+    if (!MAPS.detail) { MAPS.detail = new EIMap(mapEl, {gestures: 'cooperative', zoom: 15, controls: false}); await MAPS.detail.init(ev.lat, ev.lng, 15); }
+    MAPS.detail.invalidate();
+    MAPS.detail.setPins([ev], null);
+    const gps = LOCATION && LOCATION.source === 'gps';
+    if (gps) MAPS.detail.setUser(LOCATION.lat, LOCATION.lng, null);
+    // close by? frame you and the venue together so the route is obvious
+    if (gps && !approx && haversine(LOCATION.lat, LOCATION.lng, ev.lat, ev.lng) < 10)
+      MAPS.detail.fitPoints([{lat: ev.lat, lng: ev.lng}, {lat: LOCATION.lat, lng: LOCATION.lng}], 16);
+    else MAPS.detail.setView(ev.lat, ev.lng, approx ? 12 : 15);
+  }, 80);
 }
 
 function expandDesc() {
@@ -2198,70 +2660,376 @@ function doSearch(q) {
 /* ═══════════════════════════════════════════════════════
    MAP
 ═══════════════════════════════════════════════════════ */
-function initMap() {
-  if (mapInstance) { if (LOCATION) mapInstance.setView([LOCATION.lat, LOCATION.lng], 11); renderMapPins(currentEvents.length?currentEvents:MOCK_EVENTS); return; }
-  const cityData = LOCATION || CITIES_DATA.find(c=>c.name===activeCity) || CITIES_DATA[0];
-  mapInstance = L.map('leaflet-map',{center:[cityData.lat,cityData.lng],zoom:LOCATION?11:3,zoomControl:false});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
-    attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:20
-  }).addTo(mapInstance);
-  L.control.zoom({position:'bottomright'}).addTo(mapInstance);
-  renderMapPins(currentEvents.length?currentEvents:MOCK_EVENTS);
-  if (LOCATION) L.circleMarker([LOCATION.lat, LOCATION.lng],{radius:7,color:'#fff',weight:2,fillColor:'#0EA5E9',fillOpacity:1}).addTo(mapInstance).bindTooltip('You are here');
-  mapInstance.on('click',()=>{ document.getElementById('map-popover').style.display='none'; });
+/* ═══════════════════════════════════════════════════════
+   MAPS — one small interface over Google Maps and Leaflet/OSM.
+   Google is used when the API publishes a browser key (/config);
+   if it fails to load or the key is rejected, we fall back to
+   Leaflet; if that can't load either (blocked CDN, offline), the
+   map area shows a message instead of throwing.
+═══════════════════════════════════════════════════════ */
+const MAPS = {provider: null, loading: null, instances: []};
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const el = document.createElement('script'); el.src = src; el.async = true;
+    el.onload = res; el.onerror = () => rej(new Error('failed to load ' + src));
+    document.head.appendChild(el);
+  });
+}
+function loadCss(href) {
+  if (document.querySelector(`link[href="${href}"]`)) return;
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l);
+}
+const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+async function loadLeaflet() {
+  if (window.L) return true;
+  try { await loadScript(LEAFLET_JS); } catch {}
+  return !!window.L;
+}
+function ensureMapProvider() {
+  if (MAPS.loading) return MAPS.loading;
+  MAPS.loading = (async () => {
+    const key = CONFIG && CONFIG.google_maps_browser_key;
+    if (key && !MAPS.googleFailed) {
+      try {
+        await new Promise((resolve, reject) => {
+          window.__eiGmapsReady = resolve;
+          loadScript(`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&v=weekly&loading=async&callback=__eiGmapsReady`).catch(reject);
+          setTimeout(() => reject(new Error('Google Maps load timeout')), 10000);
+        });
+        if (window.google && google.maps && google.maps.Map) return (MAPS.provider = 'google');
+      } catch (e) { console.warn('Google Maps unavailable — using OpenStreetMap', e); }
+    }
+    return (MAPS.provider = (await loadLeaflet()) ? 'leaflet' : 'none');
+  })();
+  return MAPS.loading;
+}
+// Invalid/unauthorised Google key: Google calls this after the map was created. Rebuild on Leaflet.
+window.gm_authFailure = async () => {
+  console.warn('Google Maps key rejected — switching to OpenStreetMap');
+  MAPS.googleFailed = true; MAPS.loading = null;
+  for (const m of MAPS.instances) { await m.rebuild(); }
+};
+
+class EIMap {
+  constructor(el, {gestures = 'greedy', zoom = 12, onMoveEnd = null, controls = true} = {}) {
+    this.el = el; this.opts = {gestures, zoom, onMoveEnd, controls};
+    this.pins = []; this.user = null; this.userAcc = null; this.ring = null;
+    this.events = []; this.onPin = null; this._programmatic = 0;
+    MAPS.instances.push(this);
+  }
+  async init(lat, lng, zoom) {
+    this.provider = await ensureMapProvider();
+    this.el.innerHTML = '';
+    const z = zoom || this.opts.zoom;
+    if (this.provider === 'google') {
+      this.map = new google.maps.Map(this.el, {
+        center: {lat, lng}, zoom: z, disableDefaultUI: true, zoomControl: this.opts.controls, clickableIcons: false,
+        zoomControlOptions: {position: google.maps.ControlPosition.RIGHT_TOP},
+        gestureHandling: this.opts.gestures, fullscreenControl: false, keyboardShortcuts: true,
+      });
+      this.map.addListener('idle', () => this._moved());
+      this.map.addListener('click', () => hideMapPeek());
+    } else if (this.provider === 'leaflet') {
+      loadCss('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css');
+      this.map = L.map(this.el, {center: [lat, lng], zoom: z, zoomControl: false,
+        scrollWheelZoom: this.opts.gestures === 'greedy', tap: true,
+        // cooperative maps sit inside a scrolling page: on touch screens one finger scrolls the page, two fingers move the map
+        dragging: this.opts.gestures === 'greedy' || !L.Browser.mobile});
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
+        subdomains: 'abcd', maxZoom: 20}).addTo(this.map);
+      if (this.opts.controls) L.control.zoom({position: 'topright'}).addTo(this.map);
+      this.map.on('moveend', () => this._moved());
+      this.map.on('click', () => hideMapPeek());
+    } else {
+      this.el.innerHTML = '<div class="map-fallback"><b>Map unavailable on this connection</b>All events are still listed in the feed.</div>';
+    }
+    return this;
+  }
+  async rebuild() {
+    const c = this.center() || {lat: 0, lng: 0};
+    this.map = null; this.pins = []; this.user = this.userAcc = this.ring = null;
+    await this.init(c.lat, c.lng);
+    this.setPins(this.events, this.onPin);
+    updateMapsForLocation(false);
+  }
+  _moved() {
+    if (this.events.length && this._pinZoom !== this.zoom()) this._renderPins();
+    if (this._programmatic > 0) { this._programmatic--; return; }
+    this.opts.onMoveEnd && this.opts.onMoveEnd(this);
+  }
+  center() {
+    if (!this.map) return null;
+    if (this.provider === 'google') { const c = this.map.getCenter(); return c && {lat: c.lat(), lng: c.lng()}; }
+    const c = this.map.getCenter(); return {lat: c.lat, lng: c.lng};
+  }
+  /** radius (km) that fits inside the visible map */
+  visibleRadiusKm() {
+    if (!this.map) return null;
+    let ne, sw;
+    if (this.provider === 'google') { const b = this.map.getBounds(); if (!b) return null; ne = b.getNorthEast(); sw = b.getSouthWest(); ne = {lat: ne.lat(), lng: ne.lng()}; sw = {lat: sw.lat(), lng: sw.lng()}; }
+    else { const b = this.map.getBounds(); ne = b.getNorthEast(); sw = b.getSouthWest(); }
+    const c = this.center();
+    return Math.min(haversine(c.lat, c.lng, ne.lat, c.lng), haversine(c.lat, c.lng, c.lat, ne.lng));
+  }
+  invalidate() { if (this.provider === 'leaflet' && this.map) this.map.invalidateSize(); }
+  fitCircle(lat, lng, km) {
+    if (!this.map) return;
+    this._programmatic++;
+    if (this.provider === 'google') {
+      const circle = new google.maps.Circle({center: {lat, lng}, radius: km * 1000});
+      this.map.fitBounds(circle.getBounds(), 16);
+    } else {
+      this.map.fitBounds(L.latLng(lat, lng).toBounds(km * 2000), {padding: [16, 16]});
+    }
+  }
+  /** frame several points (e.g. you + the venue) */
+  fitPoints(pts, maxZoom = 16) {
+    if (!this.map || !pts.length) return;
+    const lats = pts.map(p => p.lat), lngs = pts.map(p => p.lng);
+    const sw = {lat: Math.min(...lats), lng: Math.min(...lngs)}, ne = {lat: Math.max(...lats), lng: Math.max(...lngs)};
+    this._programmatic++;
+    if (this.provider === 'google') {
+      this.map.fitBounds(new google.maps.LatLngBounds(sw, ne), 48);
+      if (this.map.getZoom() > maxZoom) this.map.setZoom(maxZoom);
+    } else this.map.fitBounds([[sw.lat, sw.lng], [ne.lat, ne.lng]], {padding: [48, 48], maxZoom});
+  }
+  setView(lat, lng, zoom) {
+    if (!this.map) return;
+    this._programmatic++;
+    if (this.provider === 'google') { this.map.setCenter({lat, lng}); if (zoom) this.map.setZoom(zoom); }
+    else this.map.setView([lat, lng], zoom || this.map.getZoom());
+  }
+  setRadius(lat, lng, km) {
+    if (!this.map) return;
+    if (this.provider === 'google') {
+      if (!this.ring) this.ring = new google.maps.Circle({map: this.map, strokeColor: '#F4700A', strokeOpacity: .7, strokeWeight: 2, fillOpacity: .03, fillColor: '#F4700A', clickable: false});
+      this.ring.setCenter({lat, lng}); this.ring.setRadius(km * 1000);
+    } else {
+      if (this.ring) this.ring.remove();
+      this.ring = L.circle([lat, lng], {radius: km * 1000, color: '#F4700A', weight: 2, opacity: .7, fillOpacity: .03, interactive: false}).addTo(this.map);
+    }
+  }
+  setUser(lat, lng, accM) {
+    if (!this.map) return;
+    if (this.provider === 'google') {
+      if (!this.user) {
+        this.user = new google.maps.Marker({map: this.map, zIndex: 150, title: 'You are here', clickable: false,
+          icon: {path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#0EA5E9', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3}});
+        this.userAcc = new google.maps.Circle({map: this.map, fillColor: '#0EA5E9', fillOpacity: .12, strokeColor: '#0EA5E9', strokeOpacity: .3, strokeWeight: 1, clickable: false});
+      }
+      this.user.setPosition({lat, lng}); this.userAcc.setCenter({lat, lng}); this.userAcc.setRadius(Math.max(accM || 0, 1));
+      this.userAcc.setVisible(!!accM && accM < 20000);
+    } else {
+      if (this.user) { this.user.remove(); this.userAcc && this.userAcc.remove(); }
+      if (accM && accM < 20000) this.userAcc = L.circle([lat, lng], {radius: accM, color: '#0EA5E9', weight: 1, opacity: .3, fillOpacity: .12, interactive: false}).addTo(this.map);
+      this.user = L.marker([lat, lng], {interactive: false, keyboard: false, zIndexOffset: 100,
+        icon: L.divIcon({className: '', html: '<div class="ei-user"></div>', iconSize: [16, 16], iconAnchor: [8, 8]})}).addTo(this.map);
+    }
+  }
+  zoom() { return this.map ? this.map.getZoom() : 0; }
+  setPins(events, onPin, selectedId) {
+    this.events = events || []; this.onPin = onPin; this.selectedId = selectedId;
+    this._renderPins();
+  }
+  /* Pins are clustered in screen space so a busy neighbourhood reads as "12" instead of a
+     pile of overlapping dots; from street level up, pins at the same spot fan out in a ring. */
+  _renderPins() {
+    if (!this.map) return;
+    this.pins.forEach(m => this.provider === 'google' ? m.setMap(null) : m.remove());
+    this.pins = [];
+    const z = this.zoom(); this._pinZoom = z;
+    const pts = [];
+    for (const ev of this.events) {
+      if (!Number.isFinite(ev.lat) || !Number.isFinite(ev.lng)) continue;
+      if (mapFilterActive !== 'all' && this === MAPS.main && ev.category !== mapFilterActive) continue;
+      pts.push({ev, ...mercProject(ev.lat, ev.lng, z)});
+    }
+    const sel = pts.find(p => p.ev.id === this.selectedId);
+    const groups = clusterPoints(pts.filter(p => p !== sel), z >= PIN_FAN_ZOOM ? 6 : 38);
+    for (const g of groups) {
+      if (g.length === 1) { this._addPin(g[0].ev, g[0].ev.lat, g[0].ev.lng, false); continue; }
+      if (z >= PIN_FAN_ZOOM) {           // fan out a stack of pins at one venue
+        const cx = g.reduce((a, p) => a + p.x, 0) / g.length, cy = g.reduce((a, p) => a + p.y, 0) / g.length;
+        const r = 14 + g.length * 2;
+        g.forEach((p, i) => {
+          const a = (2 * Math.PI * i) / g.length - Math.PI / 2;
+          const ll = mercUnproject(cx + r * Math.cos(a), cy + r * Math.sin(a), z);
+          this._addPin(p.ev, ll.lat, ll.lng, false);
+        });
+      } else this._addCluster(g, z);
+    }
+    if (sel) this._addPin(sel.ev, sel.ev.lat, sel.ev.lng, true);
+  }
+  _addPin(ev, lat, lng, isSel) {
+    const color = CAT_COLORS[ev.category] || CAT_COLORS.general;
+    const approx = ev.geo_accuracy === 'city' || ev.geo_accuracy === 'region';
+    const onPin = this.onPin;
+    let m;
+    if (this.provider === 'google') {
+      m = new google.maps.Marker({map: this.map, position: {lat, lng}, title: ev.title, zIndex: isSel ? 900 : 100,
+        icon: {path: google.maps.SymbolPath.CIRCLE, scale: isSel ? 11 : 8, fillColor: color, fillOpacity: approx ? .55 : 1, strokeColor: '#fff', strokeWeight: 2.5}});
+      if (onPin) m.addListener('click', () => onPin(ev));
+    } else {
+      m = L.marker([lat, lng], {title: ev.title, riseOnHover: true, zIndexOffset: isSel ? 500 : 0,
+        icon: L.divIcon({className: '', html: `<div class="ei-pin${approx ? ' approx' : ''}${isSel ? ' sel' : ''}" style="background:${color}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8]})}).addTo(this.map);
+      if (onPin) m.on('click', e => { L.DomEvent.stopPropagation(e); onPin(ev); });
+    }
+    this.pins.push(m);
+  }
+  _addCluster(g, z) {
+    const n = g.length, lat = g.reduce((a, p) => a + p.ev.lat, 0) / n, lng = g.reduce((a, p) => a + p.ev.lng, 0) / n;
+    const size = n < 10 ? 34 : n < 100 ? 40 : 48, label = n > 999 ? '999+' : String(n);
+    const title = `${n} events here — tap to zoom in`;
+    const zoomIn = () => {
+      const lats = g.map(p => p.ev.lat), lngs = g.map(p => p.ev.lng);
+      const s = Math.min(...lats), w = Math.min(...lngs), nn = Math.max(...lats), e = Math.max(...lngs);
+      this._programmatic++;
+      if (haversine(s, w, nn, e) < 0.05) {                 // same spot: jump straight to street level so they fan out
+        if (this.provider === 'google') { this.map.setCenter({lat, lng}); this.map.setZoom(PIN_FAN_ZOOM + 1); }
+        else this.map.setView([lat, lng], PIN_FAN_ZOOM + 1);
+      } else if (this.provider === 'google') {
+        this.map.fitBounds(new google.maps.LatLngBounds({lat: s, lng: w}, {lat: nn, lng: e}), 48);
+      } else this.map.fitBounds([[s, w], [nn, e]], {padding: [48, 48], maxZoom: PIN_FAN_ZOOM + 1});
+    };
+    let m;
+    if (this.provider === 'google') {
+      m = new google.maps.Marker({map: this.map, position: {lat, lng}, title, zIndex: 200 + n,
+        label: {text: label, color: '#fff', fontWeight: '800', fontSize: '13px'},
+        icon: {path: google.maps.SymbolPath.CIRCLE, scale: size / 2, fillColor: '#1C130A', fillOpacity: .9, strokeColor: '#F4700A', strokeWeight: 3}});
+      m.addListener('click', zoomIn);
+    } else {
+      m = L.marker([lat, lng], {title, zIndexOffset: 200 + n, keyboard: true,
+        icon: L.divIcon({className: '', html: `<div class="ei-cluster" style="width:${size}px;height:${size}px">${label}</div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2]})}).addTo(this.map);
+      m.on('click', e => { L.DomEvent.stopPropagation(e); zoomIn(); });
+    }
+    this.pins.push(m);
+  }
 }
 
+const PIN_FAN_ZOOM = 16;
+function mercProject(lat, lng, z) {
+  const s = 256 * 2 ** z, sin = Math.min(Math.max(Math.sin(lat * Math.PI / 180), -0.9999), 0.9999);
+  return {x: (lng + 180) / 360 * s, y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * s};
+}
+function mercUnproject(x, y, z) {
+  const s = 256 * 2 ** z, n = Math.PI - 2 * Math.PI * y / s;
+  return {lat: 180 / Math.PI * Math.atan(Math.sinh(n)), lng: x / s * 360 - 180};
+}
+/** Greedy grid clustering of projected points; radius in screen px. */
+function clusterPoints(pts, radius) {
+  const grid = new Map(), groups = [];
+  const key = (cx, cy) => cx + ':' + cy;
+  for (const p of pts) {
+    const cx = Math.floor(p.x / radius), cy = Math.floor(p.y / radius);
+    let home = null;
+    for (let dx = -1; dx <= 1 && !home; dx++) for (let dy = -1; dy <= 1 && !home; dy++) {
+      for (const g of grid.get(key(cx + dx, cy + dy)) || []) {
+        if (Math.hypot(g[0].x - p.x, g[0].y - p.y) <= radius) { home = g; break; }
+      }
+    }
+    if (home) home.push(p);
+    else { const g = [p]; groups.push(g); const k = key(cx, cy); (grid.get(k) || grid.set(k, []).get(k)).push(g); }
+  }
+  return groups;
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371, toR = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toR, dLng = (lng2 - lng1) * toR;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function fmtDistance(km) {
+  if (km == null || !Number.isFinite(km)) return '';
+  if (km < 1) return `${Math.max(10, Math.round(km * 100) * 10)} m`;
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
+}
+const DESKTOP_MQ = window.matchMedia('(min-width: 1100px)');
+
+async function initMap() {
+  const el = document.getElementById('leaflet-map');
+  const c = LOCATION || CITIES_DATA.find(x => x.name === activeCity) || {lat: 6.5244, lng: 3.3792};
+  if (!MAPS.main) {
+    MAPS.main = new EIMap(el, {gestures: 'greedy', zoom: LOCATION ? 12 : 3, onMoveEnd: onMainMapMoved});
+    await MAPS.main.init(c.lat, c.lng);
+  }
+  setTimeout(() => { MAPS.main.invalidate(); renderMapPins(currentEvents.length ? currentEvents : MOCK_EVENTS); updateMapsForLocation(true); }, 60);
+}
+
+async function ensureHomeMap() {
+  if (!DESKTOP_MQ.matches) return;
+  const el = document.getElementById('home-map');
+  if (!el) return;
+  const c = LOCATION || {lat: 6.5244, lng: 3.3792};
+  if (!MAPS.home) {
+    MAPS.home = new EIMap(el, {gestures: 'cooperative', zoom: 11});
+    await MAPS.home.init(c.lat, c.lng);
+  }
+  setTimeout(() => { MAPS.home.invalidate(); MAPS.home.setPins(currentEvents, ev => openDetail(ev.id)); updateMapsForLocation(true); }, 60);
+}
+DESKTOP_MQ.addEventListener ? DESKTOP_MQ.addEventListener('change', ensureHomeMap) : DESKTOP_MQ.addListener(ensureHomeMap);
+
+function updateMapsForLocation(refit) {
+  if (!LOCATION) return;
+  for (const m of [MAPS.main, MAPS.home]) {
+    if (!m || !m.map) continue;
+    m.setUser(LOCATION.lat, LOCATION.lng, LOCATION.source === 'gps' ? LOCATION.accuracy : null);
+    m.setRadius(LOCATION.lat, LOCATION.lng, RADIUS_KM);
+    if (refit) m.fitCircle(LOCATION.lat, LOCATION.lng, RADIUS_KM);
+  }
+  const btn = document.getElementById('map-search-here'); if (btn) btn.hidden = true;
+  const cap = document.getElementById('home-map-caption');
+  if (cap) cap.textContent = `${currentEvents.length} event${currentEvents.length === 1 ? '' : 's'} within ${RADIUS_KM} km`;
+}
+
+function onMainMapMoved(m) {
+  if (!LOCATION || !API_BASE) return;
+  const c = m.center(); if (!c) return;
+  const moved = haversine(c.lat, c.lng, LOCATION.lat, LOCATION.lng);
+  const r = m.visibleRadiusKm() || RADIUS_KM;
+  const zoomedOut = r > RADIUS_KM * 1.6;
+  document.getElementById('map-search-here').hidden = !(moved > Math.max(1, RADIUS_KM * 0.25) || zoomedOut);
+}
+
+async function searchThisArea() {
+  const m = MAPS.main; const c = m && m.center(); if (!c) return;
+  const r = Math.round(Math.min(Math.max(m.visibleRadiusKm() || RADIUS_KM, 2), (CONFIG && CONFIG.discover_max_radius_km) || 150));
+  RADIUS_KM = r; lsSet('ei_radius', String(r));
+  document.getElementById('map-search-here').hidden = true;
+  await setLocation({lat: c.lat, lng: c.lng, accuracy: null, source: 'map'}, {stay: true});
+}
 const CAT_COLORS={web3:'#7C3AED',tech:'#0EA5E9',business:'#F4700A',culture:'#DC2626',sports:'#15803D',food:'#B45309',nightlife:'#BE185D',wellness:'#0F766E',community:'#4338CA',education:'#0369A1',general:'#9C8B6E'};
 
-function makePin(color) {
-  return L.divIcon({
-    html:`<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.25)"></div>`,
-    iconSize:[14,14],iconAnchor:[7,7],className:'',
-  });
-}
-
 function renderMapPins(events) {
-  if (!mapInstance) return;
-  mapMarkers.forEach(m=>mapInstance.removeLayer(m));
-  mapMarkers=[];
-  events.filter(e=>e.lat&&e.lng).forEach(ev=>{
-    if (mapFilterActive!=='all'&&ev.category!==mapFilterActive) return;
-    const color=CAT_COLORS[ev.category]||CAT_COLORS.general;
-    const marker=L.marker([ev.lat,ev.lng],{icon:makePin(color)})
-      .addTo(mapInstance)
-      .on('click',function(e){L.DomEvent.stopPropagation(e);showMapPopover(ev,marker);});
-    mapMarkers.push(marker);
-  });
+  if (MAPS.main) MAPS.main.setPins(events, ev => showMapPopover(ev), selectedMapEventId);
+  if (MAPS.home) MAPS.home.setPins(events, ev => openDetail(ev.id));
 }
 
-function showMapPopover(ev,marker) {
-  selectedMapEventId=ev.id;
-  const d=fmtDate(ev.start_time);
-  const city=ev.venue?.city||ev.city||'—';
-  document.getElementById('pop-tag').textContent=ev.category;
-  document.getElementById('pop-title').textContent=ev.title;
-  document.getElementById('pop-meta').textContent=`${city} · ${d.mon} ${d.day}`;
-  const pop=document.getElementById('map-popover');
-  pop.style.display='block';
-  const point=mapInstance.latLngToContainerPoint([ev.lat,ev.lng]);
-  pop.style.left=point.x+'px'; pop.style.top=point.y+'px';
+function showMapPopover(ev) {
+  selectedMapEventId = ev.id;
+  const d = fmtDate(ev.start_time);
+  const where = ev.venue?.name && ev.venue.name !== ev.city ? `${ev.venue.name} · ` : '';
+  const dist = ev.distance_km != null ? ` · ${fmtDistance(ev.distance_km)}` : '';
+  document.getElementById('pop-tag').textContent = ev.category || 'event';
+  document.getElementById('pop-title').textContent = ev.title;
+  document.getElementById('pop-meta').textContent = `${where}${d.mon} ${d.day}, ${d.full.split(', ').pop()}${dist}`;
+  document.getElementById('map-popover').hidden = false;
+  MAPS.main && MAPS.main.setPins(MAPS.main.events, MAPS.main.onPin, ev.id);
   announce(`${ev.title} selected on map`);
 }
-
-function viewEventFromMap() { if(selectedMapEventId) openDetail(selectedMapEventId); }
+function hideMapPeek() {
+  const p = document.getElementById('map-popover'); if (p && !p.hidden) { p.hidden = true; selectedMapEventId = null; MAPS.main && MAPS.main.setPins(MAPS.main.events, MAPS.main.onPin); }
+}
+function viewEventFromMap() { if (selectedMapEventId) openDetail(selectedMapEventId); }
 
 function mapFilter(f) {
-  mapFilterActive=f;
-  document.querySelectorAll('.map-filter-bar .chip').forEach(c=>{
-    c.classList.toggle('on',c.dataset.filter===f);
-  });
-  renderMapPins(currentEvents.length?currentEvents:MOCK_EVENTS);
-  document.getElementById('map-popover').style.display='none';
+  mapFilterActive = f;
+  document.querySelectorAll('.map-filter-bar .chip').forEach(c => { c.classList.toggle('on', c.dataset.filter === f); c.setAttribute('aria-checked', c.dataset.filter === f); });
+  renderMapPins(currentEvents.length ? currentEvents : MOCK_EVENTS);
+  hideMapPeek();
 }
 
-/* ═══════════════════════════════════════════════════════
-   ITINERARY
-═══════════════════════════════════════════════════════ */
 function renderItinerary() {
   const stack=document.getElementById('ticket-stack');
   const allSaved=[...savedEvents,...rsvpdEvents];
@@ -2334,12 +3102,15 @@ function spawnConfetti() {
 
 function addToCalendar() { alert('Your calendar app would open with event details pre-filled.'); }
 
-function shareEvent() {
-  if (navigator.share&&currentDetailEvent) {
-    navigator.share({title:currentDetailEvent.title,text:`Check out ${currentDetailEvent.title} on PULSE!`});
-  } else {
-    announce('Event link copied');
-  }
+async function shareEvent() {
+  if (!currentDetailEvent) return;
+  const url = `${location.origin}/?event=${currentDetailEvent.id}`;
+  const data = {title: currentDetailEvent.title, text: `${currentDetailEvent.title} — on PULSE`, url};
+  try {
+    if (navigator.share) { await navigator.share(data); return; }
+    await navigator.clipboard.writeText(url);
+    announce('Link copied');
+  } catch {}
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2390,9 +3161,11 @@ async function connectApi() {
     const d=await r.json();
     if (!d.ok) throw new Error('health check failed');
     // Verify the key actually works before declaring victory
-    const probe=await fetch(`${url}/stats`,{headers:apiHeaders(),signal:AbortSignal.timeout(8000)});
+    const probe=await fetch(`${url}/signals?page_size=1`,{headers:apiHeaders(),signal:AbortSignal.timeout(8000)});
     if (probe.status===401) { status.textContent='✕ API key rejected (401)'; status.className='api-status err'; announce('API key rejected'); return; }
     setConnected(url, d);
+    try { CONFIG = await api('/config'); } catch {}
+    IS_ADMIN = probe.ok;
     await loadLiveData(); announce('API connected');
   } catch(e) {
     status.textContent='✕ Could not connect — check the URL'; status.className='api-status err';
@@ -2401,21 +3174,34 @@ async function connectApi() {
 }
 
 function mapEvent(e) {
+  const v = e.venue || {};
+  const area = v.neighbourhood || (v.name && v.name !== v.city ? v.name : null);
   return {
     ...e,
-    city: e.venue?.city || e.venue?.name || '—',
-    lat: e.venue?.latitude, lng: e.venue?.longitude,
+    city: v.city || v.name || '—',
+    place_label: area && v.city && area !== v.city ? `${area}, ${v.city}` : (v.city || v.name || '—'),
+    lat: v.latitude, lng: v.longitude, geo_accuracy: v.geo_accuracy,
     organizer: e.organizer?.name,
     price: 'free', token_gated: false,
     evidence: e.evidence_count || 0,
   };
 }
 
+function setSort(mode) {
+  SORT_MODE = mode; lsSet('ei_sort', mode);
+  for (const m of ['time', 'distance']) {
+    const b = document.getElementById('sort-' + m);
+    if (b) { b.classList.toggle('on', m === mode); b.setAttribute('aria-pressed', m === mode); }
+  }
+  if (API_BASE && LOCATION) loadLiveData(); else renderFeed(currentEvents);
+}
+
 function setStat(id, value) { const el=document.getElementById(id); if (el) el.textContent=value; }
 
 function setRadius(v) {
   RADIUS_KM = Number(v) || 25;
-  try { localStorage.setItem('ei_radius', String(RADIUS_KM)); } catch {}
+  lsSet('ei_radius', String(RADIUS_KM));
+  updateMapsForLocation(true);
   if (API_BASE && LOCATION) loadLiveData();
 }
 
@@ -2426,70 +3212,73 @@ function renderCoverage(cov, state) {
   if (!LOCATION || !API_BASE) { line.style.display='none'; if (rr) rr.style.display='none'; return; }
   line.style.display=''; if (rr) { rr.style.display=''; rr.querySelector('input').value = RADIUS_KM; document.getElementById('radius-val').textContent = RADIUS_KM; }
   line.className = 'coverage-line';
-  if (state === 'scanning') { line.classList.add('scanning'); txt.textContent = `Scanning ${RADIUS_KM} km around ${LOCATION.city}…`; return; }
+  const place = esc(LOCATION.label || LOCATION.city || 'this area');
+  const acc = LOCATION.source === 'gps' && LOCATION.accuracy ? ` <span class="loc-acc">${fmtAccuracy(LOCATION.accuracy)}</span>` : '';
+  if (state === 'scanning') { line.classList.add('scanning'); txt.innerHTML = `Scanning ${RADIUS_KM} km around ${place}…${acc}`; return; }
   if (!cov) { txt.textContent = ''; return; }
   const rescan = `<button onclick="loadLiveData(true)">rescan</button>`;
-  if (cov.reason === 'error') { line.classList.add('nosrc'); txt.innerHTML = `Couldn't reach the API for this area. ${rescan}`; return; }
-  if (cov.reason === 'no_sources') {
-    line.classList.add('nosrc');
-    txt.innerHTML = `No live sources configured — showing what's already in the database. ${rescan}`;
-    return;
-  }
+  if (cov.reason === 'error') { line.classList.add('nosrc'); txt.innerHTML = `Couldn't reach the server. ${rescan}`; return; }
+  if (cov.reason === 'no_sources') { line.classList.add('nosrc'); txt.innerHTML = `${place}${acc} · no live sources configured — showing saved events. ${rescan}`; return; }
+  if (cov.reason === 'rate_limited') { line.classList.add('fresh'); txt.innerHTML = `${place}${acc} · showing recent results (scan limit reached, try again later)`; return; }
   line.classList.add('fresh');
   const when = cov.last_scanned_at ? timeAgo(cov.last_scanned_at) : 'just now';
-  const src = cov.sources_run && cov.sources_run.length ? ` via ${cov.sources_run.map(esc).join(', ')}` : '';
-  const added = cov.scanned ? ` · ${cov.events_created} new` : '';
-  txt.innerHTML = `${esc(LOCATION.city)}${LOCATION.country?', '+esc(LOCATION.country):''} · scanned ${esc(when)}${src}${added} ${rescan}`;
+  const added = cov.scanned && cov.events_created ? ` · ${cov.events_created} new` : '';
+  txt.innerHTML = `${place}${acc} · updated ${esc(when)}${added} ${rescan}`;
 }
 
 async function loadLiveData(refresh=false) {
   if (!API_BASE) return;
   const havePoint = LOCATION && Number.isFinite(LOCATION.lat);
   const eventsUrl = havePoint
-    ? `/discover?lat=${LOCATION.lat}&lng=${LOCATION.lng}&radius_km=${RADIUS_KM}&page_size=100${refresh?'&refresh=true':''}`
+    ? `/discover?lat=${LOCATION.lat.toFixed(6)}&lng=${LOCATION.lng.toFixed(6)}&radius_km=${RADIUS_KM}&sort=${SORT_MODE}&page_size=150${refresh?'&refresh=true':''}`
     : `/events?page_size=100&sort=start_time${activeCity && activeCity !== 'Global' ? `&city=${encodeURIComponent(activeCity)}` : ''}`;
   if (havePoint) renderCoverage(null, 'scanning');
+  let ev;
   try {
-    // The scan may create events/signals, so fetch the aggregates *after* it.
-    const ev = await api(eventsUrl, {signal: AbortSignal.timeout(45000)});
-    const [sig, stats, review] = await Promise.all([
-      api(`/signals?page_size=8`),
-      api(`/stats`),
-      api(`/review-queue?status=pending&page_size=25`),
-    ]);
-    if (stats && stats.categories) { CATEGORIES = stats.categories.filter(c => c !== 'general'); renderFilters(); }
-    if (ev && ev.items) renderFeed(ev.items.map(mapEvent));
-    if (havePoint) {
-      COVERAGE = ev.coverage; renderCoverage(ev.coverage);
-      if (ev.center && ev.center.city && LOCATION.source==='gps') { LOCATION.city = ev.center.city; LOCATION.country = ev.center.country; }
-      // Hero counters describe THIS area; the Control tab keeps the global numbers.
-      setStat('s-events', ev.total);
-      setStat('s-confirmed', ev.items.filter(e=>e.confidence_score>=.75).length);
-      setStat('s-signals', ev.items.reduce((n,e)=>n+(e.evidence_count||0),0));
-    } else if (ev) {
-      setStat('s-events', ev.total);
-      setStat('s-confirmed', ev.items.filter(e=>e.confidence_score>=.75).length);
-      if (stats) setStat('s-signals', stats.signals_total);
-    }
-    if (sig && sig.items) renderSignals(sig.items.map(s=>({...s,ingested_at:timeAgo(s.ingested_at)})));
-    if (stats) {
-      STATS = stats;
-      setStat('s-events-e', stats.events_total);
-      setStat('s-signals-e', stats.signals_total);
-      setStat('s-confirmed-e', stats.events_confirmed);
-      setStat('s-review-e', stats.review_pending);
-      setStat('s-unprocessed-e', stats.signals_unprocessed);
-      setStat('s-areas-e', stats.areas_covered);
-      renderSourcesStatus(stats);
-      renderCitiesSidebar();
-    }
-    if (review && review.items) { REVIEW_ITEMS = review.items; renderReviewQueue(review.total); }
-  } catch(e) {
-    console.warn('Live data load failed', e);
-    if (havePoint) renderCoverage({reason:'error'});
-    const status=document.getElementById('api-status-msg');
-    if (status && e.status===401) { status.textContent='✕ API key rejected (401) — enter it below and reconnect'; status.className='api-status err'; }
+    ev = await api(eventsUrl, {signal: AbortSignal.timeout(45000)});
+  } catch (e) {
+    console.warn('Event load failed', e);
+    if (havePoint) renderCoverage({reason: 'error'});
+    return;
   }
+  if (ev && ev.items) renderFeed(ev.items.map(mapEvent));
+  if (havePoint && ev) {
+    COVERAGE = ev.coverage; 
+    if (ev.center) {
+      // the server's reverse-geocode is the authority on "where is this"
+      LOCATION.city = ev.center.city || LOCATION.city;
+      LOCATION.country = ev.center.country || LOCATION.country;
+      if (LOCATION.source === 'gps' || LOCATION.source === 'map' || !LOCATION.label || LOCATION.label === 'Locating…')
+        LOCATION.label = ev.center.label || ev.center.city || LOCATION.label;
+      activeCity = LOCATION.city || activeCity;
+      lsSet('ei_loc', JSON.stringify({...LOCATION, ts: Date.now()}));
+      updateLocationUI();
+    }
+    renderCoverage(ev.coverage);
+    setStat('s-events', ev.total);
+    setStat('s-confirmed', ev.items.filter(e=>e.confidence_score>=.75).length);
+    setStat('s-signals', ev.items.reduce((n,e)=>n+(e.evidence_count||0),0));
+  } else if (ev) {
+    setStat('s-events', ev.total);
+    setStat('s-confirmed', ev.items.filter(e=>e.confidence_score>=.75).length);
+  }
+  // Public visitors only get the public endpoints; admin panels load when a key is present.
+  const [stats, sig, review] = await Promise.allSettled([
+    api(`/stats`),
+    IS_ADMIN ? api(`/signals?page_size=8`) : Promise.reject('not admin'),
+    IS_ADMIN ? api(`/review-queue?status=pending&page_size=25`) : Promise.reject('not admin'),
+  ]);
+  if (stats.status === 'fulfilled') {
+    const st = stats.value; STATS = st;
+    if (st.categories) { CATEGORIES = st.categories.filter(c => c !== 'general'); renderFilters(); }
+    if (!havePoint) setStat('s-signals', st.signals_total);
+    setStat('s-events-e', st.events_total); setStat('s-signals-e', st.signals_total);
+    setStat('s-confirmed-e', st.events_confirmed); setStat('s-review-e', st.review_pending);
+    setStat('s-unprocessed-e', st.signals_unprocessed); setStat('s-areas-e', st.areas_covered);
+    renderSourcesStatus(st); renderCitiesSidebar();
+  }
+  if (sig.status === 'fulfilled' && sig.value.items) renderSignals(sig.value.items.map(s=>({...s,ingested_at:timeAgo(s.ingested_at)})));
+  if (review.status === 'fulfilled' && review.value.items) { REVIEW_ITEMS = review.value.items; renderReviewQueue(review.value.total); }
 }
 
 function renderSourcesStatus(stats) {
@@ -2614,26 +3403,51 @@ document.getElementById('s-events').textContent=MOCK_EVENTS.length;
 document.getElementById('s-signals').textContent=MOCK_SIGNALS.length;
 document.getElementById('s-confirmed').textContent=MOCK_EVENTS.filter(e=>e.confidence_score>=.75).length;
 
-/* Auto-detect API on same origin */
-(async function autoConnect() {
+/* Startup: same-origin API → config → restore location / deep link */
+(async function boot() {
+  for (const m of ['time', 'distance']) { const b = document.getElementById('sort-' + m); if (b) { b.classList.toggle('on', m === SORT_MODE); b.setAttribute('aria-pressed', m === SORT_MODE); } }
   try { API_KEY = sessionStorage.getItem('ei_api_key') || ''; if (API_KEY) document.getElementById('api-key-input').value = API_KEY; } catch {}
-  if (window.location.protocol==='file:') return;
-  const origin=window.location.origin;
+  if (window.location.protocol === 'file:') return;
+  const origin = window.location.origin;
   try {
-    const r=await fetch(origin+'/health',{signal:AbortSignal.timeout(4000)});
-    const d=await r.json();
+    const r = await fetch(origin + '/health', {signal: AbortSignal.timeout(6000)});
+    const d = await r.json();
     if (!d.ok) return;
     setConnected(origin, d);
-    // If the API is key-protected and we don't have one yet, say so clearly instead of showing demo data.
-    const probe=await fetch(origin+'/stats',{headers:apiHeaders(),signal:AbortSignal.timeout(6000)});
-    if (probe.status===401) {
-      const st=document.getElementById('api-status-msg');
-      if (st){st.textContent='Connected, but the API needs a key — enter it below and press Connect'; st.className='api-status err';}
-      document.getElementById('api-badge').textContent='● LOCKED';
-      return;
-    }
-    await loadLiveData();
-  } catch {}
+  } catch { return; }
+  try { CONFIG = await api('/config'); } catch { CONFIG = null; }
+  if (CONFIG && !lsGet('ei_radius')) RADIUS_KM = CONFIG.discover_default_radius_km || 25;
+  // Admin = has a working key (or the API has none). Public visitors get the consumer app.
+  try { const pr = await fetch(origin + '/signals?page_size=1', {headers: apiHeaders(), signal: AbortSignal.timeout(6000)}); IS_ADMIN = pr.ok; } catch {}
+  if (!IS_ADMIN) { const b = document.getElementById('api-badge'); if (b) { b.textContent = '● LIVE'; } }
+
+  const params = new URLSearchParams(location.search);
+  const deepEvent = parseInt(params.get('event'), 10);
+  let saved = null;
+  try { saved = JSON.parse(lsGet('ei_loc') || 'null'); } catch {}
+  const fresh = saved && Number.isFinite(saved.lat) && (Date.now() - (saved.ts || 0) < 6 * 3600 * 1000);
+
+  if (fresh) await setLocation({...saved, source: saved.source === 'gps' ? 'saved' : saved.source}, {stay: !!deepEvent});
+  if (deepEvent) {
+    try {
+      const e = await api(`/events/${deepEvent}`);
+      const m = mapEvent(e);
+      if (!currentEvents.find(x => x.id === m.id)) currentEvents = [m, ...currentEvents];
+      openDetail(m.id);
+    } catch { history.replaceState(null, '', location.pathname); }
+  }
+  // Returning visitor who already granted location: skip the splash and get a fresh fix.
+  if (!fresh && !deepEvent && navigator.permissions && navigator.permissions.query) {
+    try { const st = await navigator.permissions.query({name: 'geolocation'}); if (st.state === 'granted') requestLocation(); } catch {}
+  } else if (fresh && saved.source === 'gps') {
+    // refresh the fix quietly; reload only if they've moved meaningfully
+    getBestPosition({timeout: 8000, good: 100}).then(pos => {
+      const c = pos.coords;
+      if (haversine(c.latitude, c.longitude, LOCATION.lat, LOCATION.lng) > 0.5)
+        setLocation({lat: c.latitude, lng: c.longitude, accuracy: Math.round(c.accuracy), source: 'gps'}, {stay: true});
+      else { LOCATION.accuracy = Math.round(c.accuracy); LOCATION.source = 'gps'; updateLocationUI(); updateMapsForLocation(false); }
+    }).catch(() => {});
+  }
 })();
 </script>
 </body>

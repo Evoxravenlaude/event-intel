@@ -376,7 +376,7 @@ def test_auth_health_always_exempt(client):
 def test_auth_enforced_when_key_set(client, monkeypatch):
     from app.core import config as cfg
     monkeypatch.setattr(cfg.settings, "api_key", "test-secret-key")
-    r = client.get("/events")
+    r = client.get("/signals")
     assert r.status_code == 401
 
 
@@ -390,7 +390,7 @@ def test_auth_valid_key_accepted(client, monkeypatch):
 def test_auth_wrong_key_rejected(client, monkeypatch):
     from app.core import config as cfg
     monkeypatch.setattr(cfg.settings, "api_key", "test-secret-key")
-    r = client.get("/events", headers={"X-API-Key": "wrong-key"})
+    r = client.get("/signals", headers={"X-API-Key": "wrong-key"})
     assert r.status_code == 401
 
 

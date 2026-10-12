@@ -27,6 +27,7 @@ product still says "Lagos" rather than nothing; forward lookups return None.
 from __future__ import annotations
 import hashlib
 import json
+import re
 import logging
 import threading
 import time
@@ -45,18 +46,43 @@ from app.services.geo import haversine_km
 logger = logging.getLogger(__name__)
 
 
+# How precise a coordinate is. Ordered best → worst.
+ACCURACY_LEVELS = ("exact", "street", "area", "city", "region")
+
+
+def worst_accuracy(a: str | None, b: str | None) -> str | None:
+    if a is None or b is None:
+        return a or b
+    return a if ACCURACY_LEVELS.index(a) >= ACCURACY_LEVELS.index(b) else b
+
+
 @dataclass
 class Place:
     latitude: float
     longitude: float
-    city: str | None = None
+    city: str | None = None             # the city people would name (metro-normalised)
     country: str | None = None
     country_code: str | None = None     # ISO 3166-1 alpha-2, upper-case
     display_name: str | None = None
-    source: str = "geocoder"            # geocoder | gazetteer | cache
+    source: str = "geocoder"            # google | nominatim | gazetteer | ip | cache
+    neighbourhood: str | None = None    # Victoria Island, Shoreditch, Westlands …
+    locality: str | None = None         # raw administrative locality, if different from city
+    accuracy: str | None = None         # exact | street | area | city | region
+
+    @property
+    def label(self) -> str | None:
+        """Short human label: "Victoria Island, Lagos" / "Lagos, Nigeria"."""
+        first = self.neighbourhood or (self.locality if self.locality and self.locality != self.city else None)
+        if first and self.city and first.lower() != self.city.lower():
+            return f"{first}, {self.city}"
+        if self.city:
+            return f"{self.city}, {self.country}" if self.country else self.city
+        return self.display_name
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        d["label"] = self.label
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "Place":
@@ -132,7 +158,7 @@ def nearest_gazetteer_city(lat: float, lng: float, max_km: float = GAZETTEER_MAX
         return None
     name, country, cc, clat, clng = best
     return Place(latitude=lat, longitude=lng, city=name, country=country, country_code=cc,
-                 display_name=f"{name}, {country}", source="gazetteer")
+                 display_name=f"{name}, {country}", source="gazetteer", accuracy="city")
 
 
 def gazetteer_lookup(text: str) -> Place | None:
@@ -141,17 +167,56 @@ def gazetteer_lookup(text: str) -> Place | None:
     for name, country, cc, clat, clng in GAZETTEER:
         if t == name.lower() or t == f"{name}, {country}".lower():
             return Place(latitude=clat, longitude=clng, city=name, country=country, country_code=cc,
-                         display_name=f"{name}, {country}", source="gazetteer")
+                         display_name=f"{name}, {country}", source="gazetteer", accuracy="city")
     return None
 
 
+def gazetteer_prefix(text: str, limit: int = 6) -> list[Place]:
+    """Gazetteer cities whose name starts with `text` (offline autocomplete fallback)."""
+    t = text.strip().lower()
+    if not t:
+        return []
+    out = []
+    for name, country, cc, clat, clng in GAZETTEER:
+        if name.lower().startswith(t):
+            out.append(Place(latitude=clat, longitude=clng, city=name, country=country, country_code=cc,
+                             display_name=f"{name}, {country}", source="gazetteer", accuracy="city"))
+    return out[:limit]
+
+
+METRO_RADIUS_KM = 40.0
+
+
+def _metro_city(lat: float, lng: float) -> str | None:
+    """Nearest major city within METRO_RADIUS_KM — names the metro when the provider gives no city."""
+    p = nearest_gazetteer_city(lat, lng, max_km=METRO_RADIUS_KM)
+    return p.city if p else None
+
+
+_ADMIN_SUFFIX = re.compile(r"\s+(State|Region|Province|County|Prefecture|Governorate|Municipality|District)$", re.I)
+
+
+def _strip_admin(name: str | None) -> str | None:
+    return _ADMIN_SUFFIX.sub("", name).strip() if name else None
+
+
 # ---------------------------------------------------------------------------
-# Provider (Nominatim-compatible)
+# Providers
+#
+# Chain: Google Geocoding (if GOOGLE_MAPS_API_KEY) → Nominatim (if
+# GEOCODING_ENABLED) → built-in gazetteer. A provider that *answers* (even
+# "no result") ends the chain; only errors fall through to the next one.
+# Each provider has its own circuit breaker.
 # ---------------------------------------------------------------------------
+
+class ProviderError(Exception):
+    pass
+
 
 _rate_lock = threading.Lock()
 _last_call = 0.0
-_provider_down_until = 0.0   # circuit breaker: skip the provider for a while after failures
+_provider_down_until = 0.0   # Nominatim breaker
+_google_down_until = 0.0     # Google breaker
 
 
 def _throttle() -> None:
@@ -171,8 +236,17 @@ def _client() -> httpx.Client:
     )
 
 
+def _google_client() -> httpx.Client:
+    return httpx.Client(timeout=settings.geocoder_timeout_seconds)
+
+
 def _provider_available() -> bool:
+    """Nominatim usable right now."""
     return settings.geocoding_enabled and time.monotonic() >= _provider_down_until
+
+
+def _google_available() -> bool:
+    return bool(settings.google_maps_api_key) and time.monotonic() >= _google_down_until
 
 
 def _trip_breaker(exc: Exception) -> None:
@@ -181,23 +255,57 @@ def _trip_breaker(exc: Exception) -> None:
     logger.warning("Geocoder unavailable (%s) — using offline fallback for %ds", exc, settings.geocoder_backoff_seconds)
 
 
+def _trip_google(exc: Exception) -> None:
+    global _google_down_until
+    _google_down_until = time.monotonic() + settings.geocoder_backoff_seconds
+    logger.warning("Google geocoding unavailable (%s) — falling back for %ds", exc, settings.geocoder_backoff_seconds)
+
+
+# ---- Nominatim ----
+
+def _nominatim_accuracy(item: dict) -> str:
+    try:
+        rank = int(item.get("place_rank"))
+    except (TypeError, ValueError):
+        return "area"
+    if rank >= 28:
+        return "exact"
+    if rank >= 26:
+        return "street"
+    if rank >= 17:
+        return "area"
+    if rank >= 13:
+        return "city"
+    return "region"
+
+
 def _parse_nominatim(item: dict) -> Place | None:
     try:
         lat, lng = float(item["lat"]), float(item["lon"])
     except (KeyError, TypeError, ValueError):
         return None
     addr = item.get("address") or {}
-    city = (addr.get("city") or addr.get("town") or addr.get("municipality") or addr.get("village")
-            or addr.get("county") or addr.get("state_district") or addr.get("state"))
+    raw_city = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("municipality")
+    # Many metros (Lagos is the canonical case) have no `city` key at all — only
+    # LGAs/counties ("Eti Osa"). Name the metro instead of the LGA.
+    city = raw_city or _metro_city(lat, lng) or _strip_admin(addr.get("state")) or addr.get("county")
+    neighbourhood = (addr.get("suburb") or addr.get("neighbourhood") or addr.get("quarter")
+                     or addr.get("city_district") or addr.get("borough"))
     cc = (addr.get("country_code") or "").upper() or None
-    return Place(latitude=lat, longitude=lng, city=city, country=addr.get("country"), country_code=cc,
-                 display_name=item.get("display_name"), source="geocoder")
+    return Place(
+        latitude=lat, longitude=lng, city=city, country=addr.get("country"), country_code=cc,
+        display_name=item.get("display_name"), source="nominatim",
+        neighbourhood=neighbourhood if neighbourhood != city else None,
+        locality=raw_city if raw_city and raw_city != city else None,
+        accuracy=_nominatim_accuracy(item),
+    )
 
 
 def _provider_reverse(lat: float, lng: float) -> Place | None:
     _throttle()
     with _client() as c:
-        r = c.get("/reverse", params={"lat": lat, "lon": lng, "format": "jsonv2", "zoom": 10, "addressdetails": 1})
+        # zoom 16 = street/neighbourhood level, so we get "Victoria Island" not just the region
+        r = c.get("/reverse", params={"lat": lat, "lon": lng, "format": "jsonv2", "zoom": 16, "addressdetails": 1})
         r.raise_for_status()
         data = r.json()
     if not isinstance(data, dict) or data.get("error"):
@@ -217,6 +325,109 @@ def _provider_forward(text: str) -> Place | None:
     if not isinstance(data, list) or not data:
         return None
     return _parse_nominatim(data[0])
+
+
+# ---- Google Geocoding API ----
+
+_GOOGLE_LOCATION_TYPE = {"ROOFTOP": "exact", "RANGE_INTERPOLATED": "street", "GEOMETRIC_CENTER": "area", "APPROXIMATE": "city"}
+
+
+def parse_google_components(components: list[dict], long_key: str = "long_name", short_key: str = "short_name") -> dict:
+    """Shared by the Geocoding API (long_name) and Places API New (longText)."""
+    out: dict = {}
+    for comp in components or []:
+        types = comp.get("types") or []
+        long_v, short_v = comp.get(long_key), comp.get(short_key)
+        if "locality" in types:
+            out.setdefault("locality", long_v)
+        elif "postal_town" in types:
+            out.setdefault("postal_town", long_v)
+        if "sublocality_level_1" in types or "sublocality" in types:
+            out.setdefault("sublocality", long_v)
+        if "neighborhood" in types:
+            out.setdefault("neighborhood", long_v)
+        if "administrative_area_level_2" in types:
+            out.setdefault("admin2", long_v)
+        if "administrative_area_level_1" in types:
+            out.setdefault("admin1", long_v)
+        if "country" in types:
+            out.setdefault("country", long_v)
+            out.setdefault("country_code", (short_v or "").upper() or None)
+    return out
+
+
+def place_from_google_components(lat: float, lng: float, comps: dict, *, accuracy: str | None,
+                                 display_name: str | None, source: str = "google") -> Place:
+    raw_city = comps.get("locality") or comps.get("postal_town")
+    city = raw_city or _metro_city(lat, lng) or _strip_admin(comps.get("admin1")) or comps.get("admin2")
+    neighbourhood = comps.get("sublocality") or comps.get("neighborhood")
+    return Place(
+        latitude=lat, longitude=lng, city=city, country=comps.get("country"),
+        country_code=comps.get("country_code"), display_name=display_name, source=source,
+        neighbourhood=neighbourhood if neighbourhood and neighbourhood != city else None,
+        locality=raw_city if raw_city and raw_city != city else None, accuracy=accuracy,
+    )
+
+
+def _google_geocode(params: dict) -> Place | None:
+    with _google_client() as c:
+        r = c.get(settings.google_geocode_url,
+                  params={**params, "key": settings.google_maps_api_key, "language": "en"})
+        r.raise_for_status()
+        data = r.json()
+    status = data.get("status")
+    if status == "ZERO_RESULTS":
+        return None
+    if status != "OK":
+        raise ProviderError(f"google geocode {status}: {data.get('error_message', '')}".strip())
+    results = data.get("results") or []
+    if not results:
+        return None
+    first = results[0]
+    loc = (first.get("geometry") or {}).get("location") or {}
+    comps = parse_google_components(first.get("address_components") or [])
+    # Reverse results are ordered most → least specific; borrow a locality from later ones if needed
+    if not (comps.get("locality") or comps.get("postal_town")):
+        for other in results[1:]:
+            o = parse_google_components(other.get("address_components") or [])
+            if o.get("locality"):
+                comps["locality"] = o["locality"]
+                break
+    accuracy = _GOOGLE_LOCATION_TYPE.get((first.get("geometry") or {}).get("location_type"), "area")
+    types = set(first.get("types") or [])
+    if accuracy == "area" and types & {"route", "premise", "street_address", "establishment", "point_of_interest"}:
+        accuracy = "street"
+    if accuracy == "city" and not types & {"locality", "administrative_area_level_1", "administrative_area_level_2", "country"}:
+        accuracy = "area"
+    return place_from_google_components(
+        float(loc["lat"]), float(loc["lng"]), comps, accuracy=accuracy, display_name=first.get("formatted_address"),
+    )
+
+
+def _google_reverse(lat: float, lng: float) -> Place | None:
+    place = _google_geocode({"latlng": f"{lat},{lng}"})
+    if place:
+        place.latitude, place.longitude = lat, lng
+    return place
+
+
+def _google_forward(text: str) -> Place | None:
+    return _google_geocode({"address": text})
+
+
+def _chain(google_fn, nominatim_fn, *args) -> tuple[Place | None, bool]:
+    """Run the provider chain. Returns (place, answered) — answered=False means every provider errored."""
+    if _google_available():
+        try:
+            return google_fn(*args), True
+        except Exception as exc:
+            _trip_google(exc)
+    if _provider_available():
+        try:
+            return nominatim_fn(*args), True
+        except Exception as exc:
+            _trip_breaker(exc)
+    return None, False
 
 
 # ---------------------------------------------------------------------------
@@ -273,62 +484,85 @@ def _cache_put(db: Session, key: str, query: str, place: Place | None) -> None:
 # ---------------------------------------------------------------------------
 
 def reverse(db: Session, lat: float, lng: float) -> Place | None:
-    """lat/lng → Place with city/country. Never raises; falls back to the gazetteer."""
-    # Round to ~1km so nearby points share a cache entry
-    key = _key("rev", round(lat, 2), round(lng, 2))
+    """lat/lng → Place with neighbourhood/city/country. Never raises; gazetteer fallback."""
+    # ~110 m buckets: fine enough to keep the neighbourhood right, coarse enough to cache well
+    key = _key("rev2", round(lat, 3), round(lng, 3))
     cached = _cache_get(db, key)
     if cached:
         cached.latitude, cached.longitude = lat, lng
         return cached
-    place: Place | None = None
-    if _provider_available():
-        fetched = False
-        try:
-            place = _provider_reverse(lat, lng)
-            fetched = True
-        except Exception as exc:   # network / HTTP / JSON — the provider, not us
-            _trip_breaker(exc)
-        if fetched:
-            _cache_put(db, key, f"{lat},{lng}", place)
+    place, answered = _chain(_google_reverse, _provider_reverse, lat, lng)
+    if answered:
+        _cache_put(db, key, f"{lat},{lng}", place)
     if place is None:
         place = nearest_gazetteer_city(lat, lng)
     return place
 
 
+_POSTAL = re.compile(r"\b\d{5,6}\b")
+
+
+def forward_candidates(text: str, city_hint: str | None = None) -> list[tuple[str, str | None]]:
+    """
+    Progressively simpler queries for an address, with the best accuracy each can claim:
+      "Ilé MIMU, 1 Adeola Odeku St, Victoria Island, Lagos 106104, Lagos, Nigeria"
+        → full text                                         (provider accuracy)
+        → "1 Adeola Odeku St, Victoria Island, Lagos, Nigeria"  (venue name & postcode dropped)
+        → "Victoria Island, Lagos, Nigeria"                   (area at best)
+    """
+    text = re.sub(r"\s+", " ", text).strip(" ,")
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    full = text
+    if city_hint and city_hint.lower() not in text.lower():
+        full = f"{text}, {city_hint}"
+    cands: list[tuple[str, str | None]] = [(full, None)]
+    if len(parts) >= 3:
+        rest = [p for p in (_POSTAL.sub("", x).strip() for x in parts[1:]) if p]
+        # de-duplicate repeated components ("Lagos, Lagos")
+        dedup = []
+        for p_ in rest:
+            if not dedup or dedup[-1].lower() != p_.lower():
+                dedup.append(p_)
+        cands.append((", ".join(dedup), "street"))
+        if len(dedup) >= 3:
+            cands.append((", ".join(dedup[-3:]), "area"))
+    seen, out = set(), []
+    for q, acc in cands:
+        if q.lower() not in seen:
+            seen.add(q.lower())
+            out.append((q, acc))
+    return out[:3]
+
+
 def forward(db: Session, text: str, city_hint: str | None = None) -> Place | None:
     """
     Free text ("Landmark Centre, Lagos", "Berlin") → Place. Never raises.
-    `city_hint` is appended when the text doesn't already mention it, which
-    turns venue names into resolvable queries.
+    Tries progressively simpler versions of an address before giving up, and
+    records how precise the answer is.
     """
     text = (text or "").strip()
     if not text:
         return None
-    query = text
-    if city_hint and city_hint.lower() not in text.lower():
-        query = f"{text}, {city_hint}"
-    key = _key("fwd", query.lower())
-    if _cache_has(db, key):
-        return _cache_get(db, key)
-    place: Place | None = None
-    if _provider_available():
-        fetched = False
-        try:
-            place = _provider_forward(query)
-            if place is None and query != text:
-                place = _provider_forward(text)
-            fetched = True
-        except Exception as exc:   # network / HTTP / JSON — the provider, not us
-            _trip_breaker(exc)
-        if fetched:
+    for i, (query, cap) in enumerate(forward_candidates(text, city_hint)):
+        key = _key("fwd2", query.lower())
+        if _cache_has(db, key):
+            place = _cache_get(db, key)
+        else:
+            place, answered = _chain(_google_forward, _provider_forward, query)
+            if not answered:
+                break   # providers down — go to the gazetteer
             _cache_put(db, key, query, place)
-    if place is None:
-        place = gazetteer_lookup(text) or (gazetteer_lookup(city_hint) if city_hint else None)
-    return place
+        if place is not None:
+            place.accuracy = worst_accuracy(place.accuracy, cap)
+            return place
+        if i == 0 and not (_google_available() or _provider_available()):
+            break
+    return gazetteer_lookup(text) or (gazetteer_lookup(city_hint) if city_hint else None)
 
 
 def reset_breaker() -> None:
     """For tests."""
-    global _provider_down_until, _last_call
+    global _provider_down_until, _google_down_until, _last_call
     _provider_down_until = 0.0
+    _google_down_until = 0.0
     _last_call = 0.0

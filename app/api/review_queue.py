@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models.event import Event, ReviewQueueItem
+from app.models.event import Event, EventEvidence, ReviewQueueItem
 from app.schemas.event import PaginatedReviewQueueOut, ReviewActionRequest, ReviewResolveOut, ReviewQueueOut
 from app.services.review import resolve_review_item
 
@@ -17,7 +17,7 @@ def _review_query():
         selectinload(ReviewQueueItem.signal),
         selectinload(ReviewQueueItem.candidate_event).selectinload(Event.venue),
         selectinload(ReviewQueueItem.candidate_event).selectinload(Event.organizer),
-        selectinload(ReviewQueueItem.candidate_event).selectinload(Event.evidence),
+        selectinload(ReviewQueueItem.candidate_event).selectinload(Event.evidence).selectinload(EventEvidence.raw_signal),
     )
 
 

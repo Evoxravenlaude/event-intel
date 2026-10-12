@@ -77,9 +77,13 @@ pytest
 | `GET` | `/health` | Liveness |
 | `GET` | `/ready` | Readiness — database reachable, schema present, embedding model state |
 | `GET` | `/stats` | Totals, pending review, areas scanned, geo-source status, counts by category / city / source |
-| `GET` | `/discover` | **Events around a point.** `lat`, `lng`, `radius_km` (default 25, max 200), `q`, `category`, `include_past`, `refresh` (force scan), `scan=false` (read-only) |
+| `GET` | `/discover` | **Events around a point.** `lat`, `lng`, `radius_km` (default 25, max 200), `q`, `category`, `include_past`, `sort=time|distance|confidence`, `refresh` (force scan), `scan=false` (read-only). Every item carries `distance_km` |
 | `POST` | `/discover/scan` | Force a scan `{lat, lng, radius_km?, q?}`; returns the coverage report |
 | `GET` | `/discover/coverage` | Recently scanned areas (circles) |
+| `GET` | `/config` | Public frontend config: map provider, browser Maps key, geocoder, radii |
+| `GET` | `/places/autocomplete?q=&lat=&lng=&session=` | Place search as you type (Google Places → Photon → gazetteer) |
+| `GET` | `/places/resolve?id=&session=` | Suggestion → coordinates + label + accuracy |
+| `GET` | `/geo/ip` | Approximate city from the caller's IP (GPS-denied fallback) |
 | `GET` | `/geocode?q=` | Place search → coordinates (city picker) |
 | `GET` | `/geocode/reverse?lat&lng` | Coordinates → city / country |
 | `POST` | `/events` | Create event (201) |
@@ -101,7 +105,10 @@ All list endpoints accept `page` (default 1) and `page_size` (default 50, max 20
 and return `{total, page, page_size, items}`.
 
 Authentication: set `API_KEY`; send `X-API-Key: <key>` or `Authorization: Bearer <key>`.
-`/`, `/static/*`, `/health` and `/ready` never require a key.
+`/`, `/static/*`, `/health` and `/ready` never require a key. With `PUBLIC_READ=true`
+(default) the consumer read endpoints — `GET /discover`, `/events`, `/config`, `/stats`,
+`/places/*`, `/geocode*`, `/geo/ip` — are open too; anonymous live scans are limited to
+`PUBLIC_SCANS_PER_HOUR` per IP. Everything else needs the key.
 
 ### Review actions
 

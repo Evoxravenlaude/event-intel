@@ -72,9 +72,9 @@ class ScanReport:
         }
 
 
-def _active_geo_sources() -> tuple[list[str], list[str]]:
+def _active_geo_sources(only: list[str] | None = None) -> tuple[list[str], list[str]]:
     """(usable, skipped) source names for a live scan."""
-    wanted = settings.split_csv(settings.discover_sources) or [n for n, a in ADAPTERS.items() if a.supports_geo]
+    wanted = only or settings.split_csv(settings.discover_sources) or [n for n, a in ADAPTERS.items() if a.supports_geo]
     usable, skipped = [], []
     for name in wanted:
         adapter = ADAPTERS.get(name)
@@ -162,7 +162,8 @@ def _record_scan(db: Session, lat: float, lng: float, radius_km: float, place: g
     return row
 
 
-def scan_area(db: Session, lat: float, lng: float, radius_km: float, *, query: str | None = None, force: bool = False) -> ScanReport:
+def scan_area(db: Session, lat: float, lng: float, radius_km: float, *, query: str | None = None,
+              force: bool = False, sources: list[str] | None = None) -> ScanReport:
     """Run the live scan if needed and return what happened."""
     radius_km = min(max(radius_km, 1.0), settings.discover_max_radius_km)
     place = geocoding.reverse(db, lat, lng)
@@ -179,7 +180,7 @@ def scan_area(db: Session, lat: float, lng: float, radius_km: float, *, query: s
         db.commit()
         return report
 
-    usable, skipped = _active_geo_sources()
+    usable, skipped = _active_geo_sources(sources)
     report.sources_skipped = skipped
     if not usable:
         report.reason = "no_sources"

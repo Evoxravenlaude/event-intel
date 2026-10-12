@@ -41,6 +41,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.discover import router as discover_router
 from app.api.events import router as events_router
+from app.api.location import router as location_router
 from app.api.review_queue import router as review_router
 from app.api.signals import router as signals_router
 from app.api.stats import router as stats_router
@@ -182,6 +183,7 @@ app.include_router(signals_router)
 app.include_router(review_router)
 app.include_router(stats_router)
 app.include_router(discover_router)
+app.include_router(location_router)
 
 
 @app.get("/health", tags=["meta"])
@@ -216,6 +218,27 @@ def robots_txt():
     from fastapi.responses import PlainTextResponse
     body = "User-agent: *\nAllow: /$\nAllow: /static/\nDisallow: /signals\nDisallow: /review-queue\nDisallow: /stats\n"
     return PlainTextResponse(body)
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def web_manifest():
+    """Lets phones install the app to the home screen (Android & iOS)."""
+    return JSONResponse({
+        "name": "PULSE — events near you",
+        "short_name": "PULSE",
+        "description": "See what's happening around you, anywhere in the world.",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#FAF7F2",
+        "theme_color": "#F4700A",
+        "icons": [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+            {"src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }, media_type="application/manifest+json", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/favicon.ico", include_in_schema=False)

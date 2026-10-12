@@ -21,8 +21,11 @@ class Venue(Base):
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
-    # Where the coordinates came from: source | geocoder | gazetteer | manual
+    # Where the coordinates came from: source | google | nominatim | geocoder | gazetteer | manual
     geo_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # How precise they are: exact | street | area | city | region
+    geo_accuracy: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    neighbourhood: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     aliases = relationship("VenueAlias", back_populates="venue", cascade="all, delete-orphan")
 
@@ -76,6 +79,15 @@ class Event(Base):
     @property
     def evidence_count(self) -> int:
         return len(self.evidence) if self.evidence is not None else 0
+
+    @property
+    def source_url(self) -> str | None:
+        """Link to the original listing (first evidence signal that has one)."""
+        for ev in sorted(self.evidence or [], key=lambda e: e.id or 0):
+            rs = ev.raw_signal
+            if rs is not None and rs.url:
+                return rs.url
+        return None
 
 
 class RawSignal(Base):

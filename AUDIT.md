@@ -184,3 +184,41 @@ events near me" snapped to the nearest of 30 hard-coded cities.
 - **Nominatim rate limit** (1 req/s on the public instance) — self-host or use Photon for volume.
 - **Timezones.** Event times are stored UTC and displayed in the browser's zone, which equals the venue's zone for "near me" but not for a remote city search. A `timezone` column (from the geocoder) would fix the remote case.
 - The RSVP / ticket / sign-in UI remains a prototype with no backend.
+
+---
+
+# Addendum — devices, location accuracy, maps (2026-10-12)
+
+## Why the location was wrong (root causes, all fixed)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "Eti Osa" instead of Lagos | Nominatim has no `city` key in Lagos; code fell back to the LGA (`county`) | Metro-aware label: nearest known metro within 40 km, else city → state → county; neighbourhood kept separately ("Victoria Island, Lagos") |
+| Your position off by kilometres | Browser asked once, low-accuracy, 5-min-old cache allowed | `watchPosition` with high accuracy, keeps the best fix up to 12 s or until ≤60 m; shows "±20 m"; re-fixes quietly on return |
+| Denied GPS → blank app | No fallback | IP-based city (`/geo/ip`) flagged *approximate* with a banner to enable precise location (iOS / Android / desktop instructions) |
+| Events stacked on one pin | Venues matched by name, so "Lagos"/"TBA"/"Online" venues merged and inherited one point | Coordinates decide venue identity (300 m, 50 m for generic names); signals with coordinates and no text still get a venue |
+| Partial addresses geocoded to the country | Single forward query | Progressive fallback: full → without venue/postcode (street) → last three parts (area); accuracy recorded on the venue |
+| Scan results not by distance | Bounding box only; no distance returned | Exact haversine filter, `distance_km` on every item, `sort=time|distance|confidence` |
+| Old wrong labels kept serving | Cached in `geocode_cache` | Migration 0006 clears the cache once and adds `venues.geo_accuracy` + `neighbourhood` |
+
+## Maps
+
+- **Google Maps Platform** (optional, auto-detected): server key → Geocoding API + Places API (New) autocomplete with session tokens; browser key → Maps JavaScript API. Key rejection (`gm_authFailure`) rebuilds every map on OpenStreetMap.
+- **Without keys:** Nominatim + Photon + Leaflet/CARTO tiles; Leaflet is loaded only when a map is shown.
+- **Apple Maps / Google Maps directions** on every event (Apple primary on Apple devices).
+- Map screen: radius circle, "search this area" after panning, locate button, tap a pin for a peek card, **pin clustering** (count badges; a tap zooms in; pins at one venue fan out at street level).
+- Desktop home: feed + sticky live map. Event page: a "Getting there" map that frames you and the venue when you're within 10 km.
+
+## Devices
+
+The layout was tested on iPhone SE (320), iPhone 15 Pro (portrait and landscape), Pixel 7, Galaxy Fold folded (280), iPad Mini, iPad Pro landscape, a 1366 laptop and a 1920 desktop.
+
+- No horizontal page scroll anywhere; the filter chips scroll on purpose.
+- Inputs are 16 px, so iOS doesn't zoom in on focus.
+- Safe areas and `100dvh` are respected.
+- Compact controls get 44 px invisible hit areas.
+- On phones the tab bar is hidden on the event page so it can't cover the RSVP bar.
+- On touch screens, embedded maps scroll the page with one finger.
+- It installs as a PWA (manifest, maskable icons, apple-touch-icon).
+- `?event=<id>` deep links and native share work.
+- Tests: 193 passing. A Playwright run with a stubbed Google Maps checked the Google path, the clustering and the fallback to OSM.

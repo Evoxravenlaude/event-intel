@@ -155,8 +155,8 @@ def test_health_includes_version(client):
 def test_bearer_token_accepted(client, monkeypatch):
     from app.core import config as cfg
     monkeypatch.setattr(cfg.settings, "api_key", "k")
-    assert client.get("/events", headers={"Authorization": "Bearer k"}).status_code == 200
-    assert client.get("/events", headers={"Authorization": "Bearer wrong"}).status_code == 401
+    assert client.get("/signals", headers={"Authorization": "Bearer k"}).status_code == 200
+    assert client.get("/signals", headers={"Authorization": "Bearer wrong"}).status_code == 401
 
 
 def test_ready_and_root_exempt_from_auth(client, monkeypatch):
@@ -164,7 +164,7 @@ def test_ready_and_root_exempt_from_auth(client, monkeypatch):
     monkeypatch.setattr(cfg.settings, "api_key", "k")
     assert client.get("/ready").status_code == 200
     assert client.get("/").status_code == 200
-    assert client.get("/stats").status_code == 401
+    assert client.get("/review-queue").status_code == 401
 
 
 def test_cors_preflight_passes_without_key(client, monkeypatch):
@@ -180,7 +180,7 @@ def test_401_response_still_carries_cors_headers(client, monkeypatch):
     """CORS must wrap the auth middleware, otherwise browsers see an opaque error instead of a 401."""
     from app.core import config as cfg
     monkeypatch.setattr(cfg.settings, "api_key", "k")
-    r = client.get("/events", headers={"Origin": "https://app.example"})
+    r = client.get("/signals", headers={"Origin": "https://app.example"})
     assert r.status_code == 401
     assert "access-control-allow-origin" in r.headers
 

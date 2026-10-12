@@ -14,8 +14,6 @@ from app.services.scoring import infer_status, score_event
 from app.services.geo import haversine_km
 from app.services.venue_dedup import find_fuzzy_venue, record_alias
 
-# Two venues with the same name but coordinates further apart than this are different places.
-VENUE_MAX_MATCH_KM = 10.0
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +21,34 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Venues / organizers
 # ---------------------------------------------------------------------------
+
+# Names that say nothing about *which* place it is. Never match venues on these
+# by name — only by coordinates. (Luma puts the city name in when the address is
+# hidden until registration; matching on "Lagos" stacked every such event onto
+# the first one's pin.)
+_GENERIC_VENUE_NAMES = {
+    "tba", "tbd", "tbc", "to be announced", "to be confirmed", "location tba", "location tbd",
+    "secret location", "secret venue", "venue tba", "online", "virtual", "zoom", "google meet",
+    "register to see address", "address shared after registration", "various locations", "multiple locations",
+    "pinned location",
+}
+
+
+def _is_generic_name(name: str, city: str | None) -> bool:
+    n = name.strip().lower()
+    if n in _GENERIC_VENUE_NAMES or n.startswith("http"):
+        return True
+    if city and n == city.strip().lower():
+        return True
+    from app.services.geocoding import gazetteer_lookup
+    return gazetteer_lookup(name) is not None   # a bare city name
+
+
+# Same name + coordinates within this distance → same venue.
+VENUE_SAME_PLACE_KM = 0.3
+# Generic names: only coordinates identify the place.
+VENUE_GENERIC_SAME_PLACE_KM = 0.05
+
 
 def get_or_create_venue(
     db: Session,
@@ -35,51 +61,64 @@ def get_or_create_venue(
     longitude: float | None = None,
     country_code: str | None = None,
     geocode: bool = True,
+    accuracy: str | None = None,
 ) -> Venue:
     """
-    Find or create a venue. When no coordinates are supplied and `geocode` is
-    on, the name (+ city hint) is forward-geocoded so the venue — and every
-    event at it — becomes reachable by radius search. When coordinates ARE
-    supplied but no city is, they are reverse-geocoded so the venue gets a
-    real city/country label for filtering and stats.
+    Find or create a venue.
+
+    Identity rules:
+      - both sides have coordinates → same venue only if within 300 m (50 m for
+        generic names like "Lagos"/"TBA"), regardless of how similar the names are
+      - otherwise → exact or fuzzy name match within the same city
+    Geo enrichment: no coordinates → forward-geocode the address/name;
+    coordinates but no city → reverse-geocode for neighbourhood/city/country.
     """
     has_point = latitude is not None and longitude is not None
+    generic = _is_generic_name(name, city)
 
-    # 0. Know the city before matching: "Impact Hub" exists in Accra, Nairobi
-    #    and Kigali, so matching must be city-scoped. Cheap — cached.
-    if has_point and not city and geocode:
+    if has_point and geocode and (not city or not country_code):
         from app.services import geocoding
         try:
             place = geocoding.reverse(db, latitude, longitude)
             if place:
-                city = place.city or city
+                city = city or place.city
                 country = country or place.country
                 country_code = country_code or place.country_code
         except Exception as exc:
             logger.warning("Reverse geocode for venue %r failed: %s", name, exc)
 
-    def _too_far(v: Venue) -> bool:
-        return has_point and v.has_coordinates and haversine_km(latitude, longitude, v.latitude, v.longitude) > VENUE_MAX_MATCH_KM
+    def _same_place(v: Venue) -> bool:
+        if not (has_point and v.has_coordinates):
+            return not has_point or not v.has_coordinates   # can't contradict without both points
+        limit = VENUE_GENERIC_SAME_PLACE_KM if generic else VENUE_SAME_PLACE_KM
+        return haversine_km(latitude, longitude, v.latitude, v.longitude) <= limit
 
-    # 1. Exact match (fast path)
-    q = select(Venue).where(Venue.name == name)
-    if city:
-        q = q.where(Venue.city.ilike(city))
-    venue = next((v for v in db.execute(q).scalars().all() if not _too_far(v)), None)
-
-    if not venue:
-        # 2. Fuzzy match — catches name variants like "Landmark Event Centre" vs "Landmark Events Centre"
-        candidate = find_fuzzy_venue(db, name, city)
-        if candidate and not _too_far(candidate):
-            venue = candidate
-            record_alias(db, venue, name)
-            db.flush()
+    venue: Venue | None = None
+    if generic:
+        if has_point:
+            # nearest existing venue within 50 m, whatever it's called
+            min_lat, max_lat = latitude - 0.001, latitude + 0.001
+            min_lng, max_lng = longitude - 0.001, longitude + 0.001
+            near = db.execute(select(Venue).where(
+                Venue.latitude.between(min_lat, max_lat), Venue.longitude.between(min_lng, max_lng)
+            )).scalars().all()
+            venue = next((v for v in near if _same_place(v)), None)
+    else:
+        q = select(Venue).where(Venue.name == name)
+        if city:
+            q = q.where(Venue.city.ilike(city))
+        venue = next((v for v in db.execute(q).scalars().all() if _same_place(v)), None)
+        if not venue:
+            candidate = find_fuzzy_venue(db, name, city)
+            if candidate and _same_place(candidate):
+                venue = candidate
+                record_alias(db, venue, name)
+                db.flush()
 
     if venue:
-        # Enrich the existing record with anything we didn't have before
         if has_point and not venue.has_coordinates:
             venue.latitude, venue.longitude = latitude, longitude
-            venue.geo_source = "source"
+            venue.geo_source, venue.geo_accuracy = "source", accuracy or "exact"
         if address and not venue.address:
             venue.address = address
         if country and not venue.country:
@@ -88,15 +127,17 @@ def get_or_create_venue(
             venue.country_code = country_code
         if city and not venue.city:
             venue.city = city
+        if not generic and venue.name in (venue.city, "") and name:
+            venue.name = name
         if geocode:
             _enrich_venue_geo(db, venue)
         return venue
 
-    # 3. Create new venue
     venue = Venue(
         name=name, city=city, country=country, country_code=country_code, address=address,
         latitude=latitude, longitude=longitude,
         geo_source="source" if has_point else None,
+        geo_accuracy=(accuracy or "exact") if has_point else None,
     )
     db.add(venue)
     db.flush()
@@ -122,24 +163,29 @@ def split_venue_text(text: str) -> tuple[str, str | None]:
 
 
 def _enrich_venue_geo(db: Session, venue: Venue) -> None:
-    """Fill coordinates from text, or city/country from coordinates. Never raises."""
+    """Fill coordinates from text, or neighbourhood/city/country from coordinates. Never raises."""
     from app.services import geocoding
     try:
         if not venue.has_coordinates:
-            query = venue.address or venue.name
-            place = geocoding.forward(db, query, city_hint=venue.city if venue.city and venue.city != venue.name else None)
-            if place is None and venue.city and venue.city != venue.name:
-                place = geocoding.forward(db, venue.city)
+            hint = venue.city if venue.city and venue.city != venue.name else None
+            place = geocoding.forward(db, venue.address or venue.name, city_hint=hint)
+            if place is None and hint:
+                place = geocoding.forward(db, hint)
+                if place:
+                    place.accuracy = "city"
             if place:
                 venue.latitude, venue.longitude = place.latitude, place.longitude
-                venue.geo_source = place.source if place.source != "cache" else "geocoder"
-                venue.city = venue.city if (venue.city and venue.city != venue.name) else (place.city or venue.city)
+                venue.geo_source = "geocoder" if place.source == "cache" else place.source
+                venue.geo_accuracy = place.accuracy or "area"
+                venue.city = hint or place.city or venue.city
+                venue.neighbourhood = venue.neighbourhood or place.neighbourhood
                 venue.country = venue.country or place.country
                 venue.country_code = venue.country_code or place.country_code
-        elif not venue.city or not venue.country_code:
+        elif not venue.city or not venue.country_code or not venue.neighbourhood:
             place = geocoding.reverse(db, venue.latitude, venue.longitude)
             if place:
                 venue.city = venue.city or place.city
+                venue.neighbourhood = venue.neighbourhood or place.neighbourhood
                 venue.country = venue.country or place.country
                 venue.country_code = venue.country_code or place.country_code
         db.flush()
@@ -233,12 +279,12 @@ def create_event_from_signal(db: Session, signal: RawSignal, *, evidence_type: s
     via radius search — previously only the location text was copied.
     """
     venue = None
-    if signal.location_text:
+    if signal.location_text or signal.has_coordinates:
         # location_text is whatever the source gave us: for feed/X sources it is
         # the ingest city, for ICS it is a venue string ("Landmark Centre, Lagos").
         # get_or_create_venue geocodes it: coordinates from the text, and the
         # real city/country from the coordinates (gazetteer fallback offline).
-        name, address = split_venue_text(signal.location_text)
+        name, address = split_venue_text(signal.location_text) if signal.location_text else ("Pinned location", None)
         venue = get_or_create_venue(
             db,
             name=name,

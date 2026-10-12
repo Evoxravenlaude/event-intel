@@ -45,6 +45,27 @@ class Settings(BaseSettings):
     geocoder_timeout_seconds: int = 8
     geocoder_backoff_seconds: int = 300
 
+    # Google Maps Platform (optional, recommended for accuracy).
+    # SERVER key: Geocoding API + Places API (New). Keep it server-side; restrict by API.
+    google_maps_api_key: str | None = None
+    # BROWSER key: Maps JavaScript API only. Restrict by HTTP referrer to your domain.
+    # When set, the map view uses Google Maps; otherwise Leaflet + OpenStreetMap.
+    google_maps_browser_key: str | None = None
+    google_geocode_url: str = "https://maps.googleapis.com/maps/api/geocode/json"
+    google_places_url: str = "https://places.googleapis.com/v1"
+
+    # Place search fallback when there's no Google key (Photon = OSM, autocomplete-friendly).
+    photon_url: str = "https://photon.komoot.io/api/"
+
+    # Approximate location from the visitor's IP when they deny GPS. {ip} is substituted.
+    ip_geo_url: str = "https://ipapi.co/{ip}/json/"
+    ip_geo_enabled: bool = True
+
+    # Public (anonymous) access: the consumer app's read endpoints never need the API key.
+    # Live scans triggered by anonymous users are rate-limited per IP.
+    public_read: bool = True
+    public_scans_per_hour: int = 30
+
     # Discovery ("what's around me") — see services/discovery.py
     discover_default_radius_km: float = 25.0
     discover_max_radius_km: float = 200.0

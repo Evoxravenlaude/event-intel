@@ -45,6 +45,12 @@ TICKETMASTER_API_KEY=<developer.ticketmaster.com>
 SEATGEEK_CLIENT_ID=<platform.seatgeek.com>
 GEOCODER_USER_AGENT=event-intel/1.1 (ops@yourapp.com)
 
+# Location accuracy — optional but recommended (see "Google Maps keys" below)
+GOOGLE_MAPS_API_KEY=<server key: Geocoding API + Places API (New)>
+GOOGLE_MAPS_BROWSER_KEY=<browser key: Maps JavaScript API, referrer-restricted>
+PUBLIC_READ=true
+PUBLIC_SCANS_PER_HOUR=30
+
 # Optional
 WEBHOOK_URLS=https://yourapp.com/api/webhooks/event-intel
 WEBHOOK_SECRET=<openssl rand -hex 32>
@@ -60,6 +66,23 @@ LINKEDIN_SOURCE_URLS=
 X_BEARER_TOKEN=
 X_FEED_URLS=
 ```
+
+### Google Maps keys (optional)
+
+Without keys everything still works: Nominatim (geocoding), Photon (place search) and
+Leaflet + OpenStreetMap (maps). Google is more accurate for street addresses and venue
+names, especially in Lagos/Nairobi-style cities where OSM is thin.
+
+1. Google Cloud console → enable **Geocoding API**, **Places API (New)** and **Maps JavaScript API**.
+2. Create key #1 → *API restrictions*: Geocoding API + Places API (New). Set it as
+   `GOOGLE_MAPS_API_KEY`. It never leaves the server.
+3. Create key #2 → *API restrictions*: Maps JavaScript API; *Application restrictions*:
+   HTTP referrers `https://event-intel-production.up.railway.app/*` (and your own domain).
+   Set it as `GOOGLE_MAPS_BROWSER_KEY`. The page receives it from `/config`.
+4. If the browser key is rejected, the page switches to OpenStreetMap on its own.
+
+Directions always deep-link to Apple Maps (primary on iPhone/iPad/Mac) and Google Maps
+(primary elsewhere); neither needs a key.
 
 ### 3. Railway services
 
@@ -150,6 +173,8 @@ Set `RUN_MIGRATIONS=false` on the api service if you prefer to run them yourself
 - [ ] `DATABASE_URL` uses `?sslmode=require`
 - [ ] `WEBHOOK_SECRET` set if you consume webhooks
 - [ ] Only one scheduler running (service **or** in-process)
+- [ ] Google keys (if used): server key restricted to Geocoding + Places, browser key referrer-restricted
+- [ ] Railway domain targets the port the app listens on (`$PORT`, 8080 on Railway)
 - [ ] `GEOCODER_USER_AGENT` names a real contact (Nominatim policy) — or point `GEOCODER_BASE_URL` at your own instance
 
 ---
@@ -175,10 +200,13 @@ docker run -p 8000:8000 -e DATABASE_URL=sqlite:////tmp/ei.db -e EMBEDDINGS_ENABL
 
 ## Frontend
 
-`app/static/index.html` is the whole frontend. On load it calls `/health` on its
-own origin; if that succeeds it switches from demo data to live data. If the API
-requires a key it shows **LOCKED** until you enter the key in the Control tab
-(kept in `sessionStorage` for the tab's lifetime).
+`app/static/index.html` is the whole frontend: phones get a bottom tab bar,
+tablets a centred column with a floating tab bar and dialog sheets, desktops a
+left rail with the feed and a live map side by side. It installs as a PWA
+(`/manifest.webmanifest`). On load it reads `/config` (map provider, browser key),
+asks for a precise GPS fix (falls back to an IP-based city if denied) and calls
+`/discover`. The public feed needs no key; the Control tab's admin views
+(signals, review queue) appear once you enter the API key there.
 
 To host it elsewhere (Netlify, GitHub Pages): open the file, paste the API URL and
 key in the Control tab, press Connect. Set `CORS_ORIGINS_RAW` to that host.

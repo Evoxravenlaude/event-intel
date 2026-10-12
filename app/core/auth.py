@@ -24,7 +24,21 @@ from app.core.config import settings
 
 # Paths that never require authentication
 EXEMPT_PREFIXES = ("/static/", "/docs", "/redoc", "/openapi.json")
-EXEMPT_EXACT = {"/", "/health", "/ready", "/robots.txt", "/favicon.ico"}
+EXEMPT_EXACT = {"/", "/health", "/ready", "/robots.txt", "/favicon.ico", "/manifest.webmanifest"}
+
+# With PUBLIC_READ on, anonymous GETs to these are allowed — this is what the
+# consumer app uses. Everything else (writes, ingestion, review, coverage admin)
+# still needs the key. Anonymous *scans* via /discover are rate-limited per IP.
+PUBLIC_GET_EXACT = {"/discover", "/events", "/config", "/stats", "/geo/ip", "/geocode", "/geocode/reverse",
+                    "/places/autocomplete", "/places/resolve"}
+PUBLIC_GET_PREFIXES = ("/events/",)
+
+
+def _is_public_read(request) -> bool:
+    if not settings.public_read or request.method not in ("GET", "HEAD"):
+        return False
+    path = request.url.path.rstrip("/") or "/"
+    return path in PUBLIC_GET_EXACT or any(path.startswith(p) for p in PUBLIC_GET_PREFIXES)
 
 
 def _is_exempt(path: str) -> bool:
@@ -43,17 +57,25 @@ def _extract_key(request: Request) -> str:
     return ""
 
 
+def is_admin(request: Request) -> bool:
+    """True when the caller presented the API key (or auth is disabled entirely)."""
+    if not settings.api_key:
+        return True
+    incoming = _extract_key(request)
+    return bool(incoming) and hmac.compare_digest(incoming.encode(), settings.api_key.encode())
+
+
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        request.state.is_admin = is_admin(request)
         if not settings.api_key:
             # Auth disabled — pass through (dev/test mode)
             return await call_next(request)
 
-        if request.method == "OPTIONS" or _is_exempt(request.url.path):
+        if request.method == "OPTIONS" or _is_exempt(request.url.path) or _is_public_read(request):
             return await call_next(request)
 
-        incoming = _extract_key(request)
-        if not incoming or not hmac.compare_digest(incoming.encode(), settings.api_key.encode()):
+        if not request.state.is_admin:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Invalid or missing API key"},
