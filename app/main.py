@@ -134,7 +134,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    version="1.1.0",
+    version="2.0.0",
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
     openapi_url="/openapi.json" if settings.debug else None,
@@ -224,15 +224,15 @@ def robots_txt():
 def web_manifest():
     """Lets phones install the app to the home screen (Android & iOS)."""
     return JSONResponse({
-        "name": "PULSE — events near you",
-        "short_name": "PULSE",
-        "description": "See what's happening around you, anywhere in the world.",
+        "name": "pulse — what's on around you",
+        "short_name": "pulse",
+        "description": "Live events around you, anywhere in the world.",
         "start_url": "/",
         "scope": "/",
         "display": "standalone",
         "orientation": "any",
-        "background_color": "#FAF7F2",
-        "theme_color": "#F4700A",
+        "background_color": "#F2EEE4",
+        "theme_color": "#F2EEE4",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
@@ -244,8 +244,10 @@ def web_manifest():
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     from fastapi.responses import Response as RawResponse
-    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#F4700A"/>'
-           '<path d="M36 10 20 36h11l-3 18 16-26H33z" fill="#fff"/></svg>')
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+           '<rect x="9" y="9" width="50" height="50" rx="14" fill="#141414"/>'
+           '<rect x="5" y="5" width="50" height="50" rx="14" fill="#FBF8F1" stroke="#141414" stroke-width="4"/>'
+           '<circle cx="30" cy="30" r="10" fill="#FF5A1F"/></svg>')
     return RawResponse(content=svg, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
 
 

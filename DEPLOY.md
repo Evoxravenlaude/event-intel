@@ -67,6 +67,23 @@ X_BEARER_TOKEN=
 X_FEED_URLS=
 ```
 
+### Maps (no setup needed)
+
+The map runs on **MapLibre GL + OpenFreeMap** out of the box: vector tiles, no key, no usage
+cap, commercial use allowed. `MAP_STYLE_URL` swaps the style (MapTiler, Stadia, Protomaps or
+your own tiles all work). Two optional upgrades:
+
+- **Apple Maps** — the most generous free tier (250k map views/day). Needs the Apple Developer
+  Program ($99/yr). Developer portal → Keys → create a key with *MapKit JS* → download the `.p8`.
+  Set `APPLE_MAPKIT_TEAM_ID`, `APPLE_MAPKIT_KEY_ID`, `APPLE_MAPKIT_PRIVATE_KEY` (the `.p8` text)
+  and `APPLE_MAPKIT_ORIGIN=https://<your domain>`. The server signs 30-minute tokens at
+  `/mapkit/token`; the private key never reaches the browser.
+- **Google Maps** — see below. Setting `GOOGLE_MAPS_BROWSER_KEY` makes Google the map; set
+  `MAP_PROVIDER=apple` or `maplibre` if you only want Google for search/geocoding.
+
+If a provider's key is rejected or its script can't load, every map on the page rebuilds on
+OpenFreeMap automatically.
+
 ### Google Maps keys (optional)
 
 Without keys everything still works: Nominatim (geocoding), Photon (place search) and
@@ -200,9 +217,9 @@ docker run -p 8000:8000 -e DATABASE_URL=sqlite:////tmp/ei.db -e EMBEDDINGS_ENABL
 
 ## Frontend
 
-`app/static/index.html` is the whole frontend: phones get a bottom tab bar,
-tablets a centred column with a floating tab bar and dialog sheets, desktops a
-left rail with the feed and a live map side by side. It installs as a PWA
+`app/static/index.html` + `css/app.css` + `js/maps.js` + `js/app.js` are the whole frontend (no build step; fonts are self-hosted in `static/fonts`). Phones get a bottom tab bar;
+from 900 px the sections move into the top bar and sheets become dialogs; from 1100 px the
+feed and a live map sit side by side. Light and dark follow the device. It installs as a PWA
 (`/manifest.webmanifest`). On load it reads `/config` (map provider, browser key),
 asks for a precise GPS fix (falls back to an IP-based city if denied) and calls
 `/discover`. The public feed needs no key; the Control tab's admin views

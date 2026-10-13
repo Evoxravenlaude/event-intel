@@ -239,7 +239,9 @@ def test_geo_ip_endpoint(client, monkeypatch):
 
 def test_config_reports_map_provider(client, monkeypatch):
     from app.core import config as cfg
-    assert client.get("/config").json()["map_provider"] == "leaflet"
+    d = client.get("/config").json()
+    assert d["map_provider"] == "maplibre" and d["map_style_url"].startswith("https://")
+    assert d["google_maps_browser_key"] is None
     monkeypatch.setattr(cfg.settings, "google_maps_browser_key", "browser-key")
     monkeypatch.setattr(cfg.settings, "google_maps_api_key", "srv-key")
     d = client.get("/config").json()
@@ -373,3 +375,57 @@ def test_event_exposes_source_url(client):
     ev = next(e for e in items if e["title"] == "Rooftop Listening Session")
     assert ev["source_url"] == "https://lu.ma/rooftop-listening"
     assert client.get(f"/events/{ev['id']}").json()["source_url"] == "https://lu.ma/rooftop-listening"
+
+
+# ---------------------------------------------------------------------------
+# Map provider choice + Apple MapKit tokens
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def mapkit_on(monkeypatch):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from app.core import config as cfg
+    from app.services import mapkit
+    key = ec.generate_private_key(ec.SECP256R1())
+    pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    monkeypatch.setattr(cfg.settings, "apple_mapkit_team_id", "TEAM123456")
+    monkeypatch.setattr(cfg.settings, "apple_mapkit_key_id", "KEY7654321")
+    monkeypatch.setattr(cfg.settings, "apple_mapkit_private_key", pem.replace("\n", "\\n"))   # as pasted into an env var
+    monkeypatch.setattr(cfg.settings, "apple_mapkit_origin", "https://pulse.example")
+    mapkit.reset()
+    yield key.public_key()
+    mapkit.reset()
+
+
+def test_map_provider_resolution(monkeypatch, mapkit_on):
+    from app.core import config as cfg
+    s = cfg.settings
+    assert s.resolved_map_provider == "apple"                 # auto: MapKit configured, no Google browser key
+    monkeypatch.setattr(s, "google_maps_browser_key", "bk")
+    assert s.resolved_map_provider == "google"                # auto prefers an explicit Google key
+    monkeypatch.setattr(s, "map_provider", "apple")
+    assert s.resolved_map_provider == "apple"
+    monkeypatch.setattr(s, "map_provider", "maplibre")
+    assert s.resolved_map_provider == "maplibre"
+    monkeypatch.setattr(s, "map_provider", "google")
+    monkeypatch.setattr(s, "google_maps_browser_key", None)
+    assert s.resolved_map_provider == "apple"                 # asked for google without a key → next best
+
+
+def test_mapkit_token_is_valid_es256(client, mapkit_on):
+    import jwt
+    r = client.get("/mapkit/token")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    tok = r.text
+    hdr = jwt.get_unverified_header(tok)
+    assert hdr["alg"] == "ES256" and hdr["kid"] == "KEY7654321"
+    claims = jwt.decode(tok, mapkit_on, algorithms=["ES256"])
+    assert claims["iss"] == "TEAM123456" and claims["origin"] == "https://pulse.example"
+    assert 300 <= claims["exp"] - claims["iat"] <= 3600
+    assert client.get("/mapkit/token").text == tok           # cached until near expiry
+    assert client.get("/config").json()["map_provider"] == "apple"
+
+
+def test_mapkit_token_404_when_not_configured(client):
+    assert client.get("/mapkit/token").status_code == 404

@@ -30,7 +30,7 @@ EXEMPT_EXACT = {"/", "/health", "/ready", "/robots.txt", "/favicon.ico", "/manif
 # consumer app uses. Everything else (writes, ingestion, review, coverage admin)
 # still needs the key. Anonymous *scans* via /discover are rate-limited per IP.
 PUBLIC_GET_EXACT = {"/discover", "/events", "/config", "/stats", "/geo/ip", "/geocode", "/geocode/reverse",
-                    "/places/autocomplete", "/places/resolve"}
+                    "/places/autocomplete", "/places/resolve", "/mapkit/token"}
 PUBLIC_GET_PREFIXES = ("/events/",)
 
 

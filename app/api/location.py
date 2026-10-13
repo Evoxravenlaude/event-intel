@@ -5,25 +5,29 @@ GET /config                       what the frontend should load (map provider, k
 GET /places/autocomplete?q=       place search type-ahead (Google Places → Photon → gazetteer)
 GET /places/resolve?id=           suggestion → coordinates + labels
 GET /geo/ip                       approximate location from the caller's IP (GPS denied / unavailable)
+GET /mapkit/token                 short-lived Apple MapKit JS token (only when MapKit is configured)
 """
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.discover import PlaceOut
 from app.core.config import settings
 from app.db.session import get_db
-from app.services import ip_geo, places
+from app.services import ip_geo, mapkit, places
 
 router = APIRouter(tags=["location"])
 
 
 class ConfigOut(BaseModel):
     version: str
-    map_provider: str                      # google | leaflet
-    google_maps_browser_key: str | None    # referrer-restricted browser key, safe to expose
+    map_provider: str                      # maplibre | google | apple
+    map_style_url: str                     # MapLibre style (light)
+    map_style_url_dark: str                # MapLibre style (dark)
+    google_maps_browser_key: str | None    # referrer-restricted browser key, safe to expose (only when provider is google)
     place_search_provider: str             # google | photon | gazetteer
     geocoder: str                          # google | nominatim | gazetteer
     discover_default_radius_km: float
@@ -46,8 +50,10 @@ def get_config(request: Request):
     from app.main import app
     return ConfigOut(
         version=app.version,
-        map_provider="google" if settings.google_maps_browser_key else "leaflet",
-        google_maps_browser_key=settings.google_maps_browser_key,
+        map_provider=settings.resolved_map_provider,
+        map_style_url=settings.map_style_url,
+        map_style_url_dark=settings.map_style_url_dark,
+        google_maps_browser_key=settings.google_maps_browser_key if settings.resolved_map_provider == "google" else None,
         place_search_provider="google" if settings.google_maps_api_key else ("photon" if settings.geocoding_enabled else "gazetteer"),
         geocoder="google" if settings.google_maps_api_key else ("nominatim" if settings.geocoding_enabled else "gazetteer"),
         discover_default_radius_km=settings.discover_default_radius_km,
@@ -84,3 +90,13 @@ def geo_from_ip(request: Request):
     if place is None:
         raise HTTPException(status_code=404, detail="Could not determine location from IP")
     return PlaceOut(**place.to_dict())
+
+
+@router.get("/mapkit/token", response_class=PlainTextResponse)
+def mapkit_token(request: Request):
+    """MapKit JS calls this from its authorizationCallback. Plain-text JWT."""
+    try:
+        origin = request.headers.get("origin") or None
+        return PlainTextResponse(mapkit.token(origin), headers={"Cache-Control": "no-store"})
+    except mapkit.MapKitNotConfigured:
+        raise HTTPException(status_code=404, detail="Apple MapKit is not configured")

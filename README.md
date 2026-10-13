@@ -40,7 +40,7 @@ scheduler.
 - **Source adapters** — Luma (ICS / page JSON-LD), Eventbrite (org API / page JSON-LD), Telegram + LinkedIn (RSS/Atom, LinkedIn event pages), X (API v2 / RSS bridges)
 - **Scheduler** — recurring ingest + cluster, standalone or in-process
 - **Webhooks** — fired once when an event first becomes confirmed; optional HMAC signature
-- **Frontend** — served at `/`; real geolocation → `/discover`, city search for any place on Earth via `/geocode`, radius slider, coverage status line, map centred on you, review-queue panel
+- **Frontend** — served at `/` (no build step): precise geolocation → `/discover`, place search for any city/area/venue, week board, live map (MapLibre + OpenFreeMap by default, Apple or Google Maps optional) with clustering, directions via Apple/Google Maps, .ics export, PWA, light/dark, operator control room
 - **Ops** — `/health` (liveness), `/ready` (DB + schema), JSON logs in production, request IDs, Alembic migrations run on boot, Docker + Railway + Supabase setup, GitHub Actions CI
 - **Tests** — 161 tests covering the API, discovery/coverage, geocoding, clustering/review semantics, parsing, adapters (mocked HTTP), auth and geo
 
@@ -84,6 +84,7 @@ pytest
 | `GET` | `/places/autocomplete?q=&lat=&lng=&session=` | Place search as you type (Google Places → Photon → gazetteer) |
 | `GET` | `/places/resolve?id=&session=` | Suggestion → coordinates + label + accuracy |
 | `GET` | `/geo/ip` | Approximate city from the caller's IP (GPS-denied fallback) |
+| `GET` | `/mapkit/token` | Short-lived Apple MapKit JS token (404 unless `APPLE_MAPKIT_*` is set) |
 | `GET` | `/geocode?q=` | Place search → coordinates (city picker) |
 | `GET` | `/geocode/reverse?lat&lng` | Coordinates → city / country |
 | `POST` | `/events` | Create event (201) |

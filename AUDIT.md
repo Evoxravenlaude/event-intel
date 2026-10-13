@@ -222,3 +222,45 @@ The layout was tested on iPhone SE (320), iPhone 15 Pro (portrait and landscape)
 - It installs as a PWA (manifest, maskable icons, apple-touch-icon).
 - `?event=<id>` deep links and native share work.
 - Tests: 193 passing. A Playwright run with a stubbed Google Maps checked the Google path, the clustering and the fallback to OSM.
+
+---
+
+# Addendum — redesign + free maps (2026-10-13)
+
+## Maps: switched to MapLibre + OpenFreeMap
+- Leaflet + CARTO raster tiles are gone. As far as we know, CARTO's free basemaps are for non-commercial use only. The new default is **MapLibre GL + OpenFreeMap vector tiles**: no key, no usage cap, and commercial use is allowed. The style is recoloured to the app's palette when it loads.
+- **Engine choice.** `MAP_PROVIDER` can be `auto`, `maplibre`, `google` or `apple`.
+  - `auto` picks Google if a browser key is set, otherwise Apple if MapKit is configured, otherwise MapLibre.
+  - Apple MapKit JS tokens are ES256 JWTs signed on the server (`/mapkit/token`), locked to the site origin, and cached until shortly before they expire.
+- **One interface over all three engines.** `js/maps.js` exposes a single `EIMap` with an adapter per engine.
+  - Pins, clusters, the radius ring and the "you are here" dot are DOM elements, so they look the same on every engine.
+  - If a key is rejected (`gm_authFailure`, a MapKit `error` event), every map on the page rebuilds on MapLibre.
+  - If WebGL is missing, the map area shows a message instead of breaking.
+- **Verified in Chromium** with stubbed Google and Apple scripts on each engine:
+  - pins and clusters render;
+  - tapping a cluster zooms in;
+  - tapping a pin opens the preview card;
+  - after a rejection, the map rebuilds on MapLibre and its markers come back.
+- Map containers are their own stacking context, so map markers can no longer show through bottom sheets. This was a real bug.
+
+## UI redesign ("field notebook × window system")
+- Paper canvas, cream windows with 2px ink edges, and offset "plates" coloured by category. Outfit for display, Figtree for body text, JetBrains Mono for metadata. The fonts are now self-hosted, so the critical path has no font CDN.
+- New pieces:
+  - a live ticker;
+  - a week board (today / tomorrow / this week / later; "+N more" filters the feed);
+  - radius preset chips;
+  - skeleton cards while a scan runs;
+  - a sticky detail header;
+  - directions buttons;
+  - a real `.ics` calendar download in place of an alert;
+  - saved and going events kept between visits;
+  - name and email remembered for RSVP;
+  - dark mode.
+- The venue name is no longer repeated ("Ilé MIMU, Ilé MIMU, Lagos").
+- Demo data is dated relative to today.
+- The fake "Continue with Apple/Google" sign-in buttons were removed. They signed nobody in.
+- **Device audit** on iPhone SE, iPhone 15 Pro (portrait and landscape), Pixel 7, Galaxy Fold folded, iPad Mini, iPad Pro landscape, a 1366 laptop and a 1920 desktop:
+  - no horizontal overflow;
+  - no inputs under 16 px;
+  - no JS errors.
+- Tests: 196 passing.

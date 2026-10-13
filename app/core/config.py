@@ -54,6 +54,26 @@ class Settings(BaseSettings):
     google_geocode_url: str = "https://maps.googleapis.com/maps/api/geocode/json"
     google_places_url: str = "https://places.googleapis.com/v1"
 
+    # Map display.
+    #   MAP_PROVIDER: auto | maplibre | google | apple
+    #   auto → google if GOOGLE_MAPS_BROWSER_KEY is set, else apple if MapKit is configured,
+    #          else maplibre (free, keyless vector tiles).
+    map_provider: str = "auto"
+    # MapLibre style JSON. OpenFreeMap is free, keyless and allows commercial use.
+    # Any MapLibre-compatible style works (MapTiler, Stadia, Protomaps, self-hosted).
+    map_style_url: str = "https://tiles.openfreemap.org/styles/positron"
+    map_style_url_dark: str = "https://tiles.openfreemap.org/styles/dark"
+
+    # Apple MapKit JS (Apple Developer Program): 250k map views + 25k service calls per day free.
+    # Create a Maps ID + private key in the developer portal; paste the .p8 contents into
+    # APPLE_MAPKIT_PRIVATE_KEY (newlines may be written as \n).
+    apple_mapkit_team_id: str | None = None
+    apple_mapkit_key_id: str | None = None
+    apple_mapkit_private_key: str | None = None
+    # Lock tokens to your site (recommended), e.g. https://event-intel-production.up.railway.app
+    apple_mapkit_origin: str | None = None
+    apple_mapkit_token_ttl_seconds: int = 1800
+
     # Place search fallback when there's no Google key (Photon = OSM, autocomplete-friendly).
     photon_url: str = "https://photon.komoot.io/api/"
 
@@ -165,6 +185,21 @@ class Settings(BaseSettings):
             if self.debug:
                 logger.warning("DEBUG is true in production — Swagger UI is exposed.")
         return self
+
+    @property
+    def mapkit_configured(self) -> bool:
+        return bool(self.apple_mapkit_team_id and self.apple_mapkit_key_id and self.apple_mapkit_private_key)
+
+    @property
+    def resolved_map_provider(self) -> str:
+        """Explicit MAP_PROVIDER wins when it's usable; otherwise auto: google → apple → maplibre."""
+        choice = (self.map_provider or "auto").strip().lower()
+        usable = {"google": bool(self.google_maps_browser_key), "apple": self.mapkit_configured, "maplibre": True}
+        if choice in usable and usable[choice]:
+            return choice
+        if choice not in usable and choice != "auto":
+            logger.warning("Unknown MAP_PROVIDER=%r — using auto", self.map_provider)
+        return next(p for p in ("google", "apple", "maplibre") if usable[p])
 
     @property
     def is_sqlite(self) -> bool:
